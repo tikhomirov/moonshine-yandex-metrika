@@ -4,46 +4,44 @@
 [![PHP Version](https://img.shields.io/packagist/php-v/tikhomirov/moonshine-yandex-metrika)](https://packagist.org/packages/tikhomirov/moonshine-yandex-metrika)
 [![License](https://img.shields.io/packagist/l/tikhomirov/moonshine-yandex-metrika)](LICENSE)
 
-**Яндекс.Метрика** dashboard page for [MoonShine 4.x](https://moonshine-laravel.com) admin panel.
+Пакет добавляет в [MoonShine 4.x](https://moonshine-laravel.com) отдельную страницу дашборда с ключевой статистикой из **Яндекс.Метрики**: визиты, просмотры, уник посетители, отказы, топ страниц, источники трафика, поисковые фразы, страны, браузеры.
 
-Displays key site analytics — visits, page views, unique visitors, bounce rate, top pages, traffic sources, search phrases, countries and browsers — all on a single configurable page inside your MoonShine admin.
-
-![Dashboard preview](docs/preview.png)
+![Иконка](docs/icon.png)
 
 ---
 
-## Requirements
+## Требования
 
 - PHP 8.2+
-- Laravel 11 or 12
+- Laravel 11 или 12
 - MoonShine 4.x
 
 ---
 
-## Installation
+## Установка пакета
 
 ```bash
 composer require tikhomirov/moonshine-yandex-metrika
 ```
 
-Publish the config:
+Публикуем конфиг:
 
 ```bash
 php artisan vendor:publish --tag=moonshine-yandex-metrika-config
 ```
 
-Add to your `.env`:
+Добавляем в `.env`:
 
 ```env
-YANDEX_METRIKA_TOKEN=your_oauth_token
-YANDEX_METRIKA_COUNTER_ID=12345678
+YANDEX_METRIKA_TOKEN=ваш_токен
+YANDEX_METRIKA_COUNTER_ID=ваш_номер_счётчика
 ```
 
-Register the dashboard page in your MoonShine provider:
+Регистрируем страницу в MoonShine провайдере:
 
 ```php
 // app/Providers/MoonShineServiceProvider.php
-use YourVendor\MoonshineYandexMetrika\Pages\MetrikaDashboardPage;
+use Tikhomirov\MoonshineYandexMetrika\Pages\MetrikaDashboardPage;
 
 public function menu(): array
 {
@@ -56,62 +54,140 @@ public function menu(): array
 
 ---
 
-## Getting the OAuth Token
+## Получение OAuth-токена
 
-1. Go to [oauth.yandex.ru](https://oauth.yandex.ru/) → **Register new application**
-2. Enter a name, select **Yandex.Metrika** → **Read statistics (own and trusted counters)**
-3. Select **Development URL** as Callback
-4. Copy the **Application ID**
-5. Open in browser:
-   ```
-   https://oauth.yandex.ru/authorize?response_type=token&client_id=YOUR_APP_ID
-   ```
-6. Allow access → copy the token from the URL → paste into `.env`
+Это самый трудоёмкий шаг — нужно зарегистрировать OAuth-приложение в Яндексе. Ниже подробная инструкция по каждому шагу.
+
+### Шаг 1 — Создать приложение
+
+1. Перейти на [oauth.yandex.ru](https://oauth.yandex.ru/) и нажать **«Зарегистрировать новое приложение»**
+2. Заполнить форму:
+   - **Название сервиса** — любое, например `Yandex.Metrika`
+   - **Иконка** — обязательное поле, загрузить PNG/JPG до 1 МБ (можно использовать [`docs/icon.png`](docs/icon.png) из этого репозитория)
+   - **Почта для связи** — ваша рабочая почта
+
+![Шаг 1](docs/oauth-step1.jpg)
 
 ---
 
-## Configuration
+### Шаг 2 — Платформы приложений
 
-All options are in `config/moonshine-yandex-metrika.php`:
+1. Отметить чекбокс **«Веб-сервисы»**
+2. В поле **Redirect URI** ввести:
+   ```
+   https://oauth.yandex.ru/verification_code
+   ```
+   Это официальный адрес Яндекса для ручного получения токена — после авторизации он покажет токен прямо на странице.
+3. Поле **Suggest Hostname** — оставить пустым
+4. Чекбоксы **iOS** и **Android** — не трогать
+
+![Шаг 2](docs/oauth-step2.jpg)
+
+---
+
+### Шаг 3 — Права доступа
+
+1. Раздел **«Основные»** — ничего не отмечать (это права на данные пользователей, нам не нужны)
+2. Раздел **«Дополнительные»** — в поле «Название доступа» по очереди добавить:
+   - `metrika:read` — чтение статистики и параметров счётчиков *(обязательно)*
+   - `metrika:write` — управление счётчиками *(необязательно, если нужен только просмотр)*
+
+![Шаг 3](docs/oauth-step3.jpg)
+
+---
+
+### Шаг 4 — Завершение
+
+После финального шага Яндекс покажет страницу с **Client ID** приложения. Скопируйте его.
+
+---
+
+### Получение токена
+
+Откройте в браузере (залогинившись под нужным аккаунтом Яндекса):
+
+```
+https://oauth.yandex.ru/authorize?response_type=token&client_id=ВАШ_CLIENT_ID
+```
+
+Нажмите **«Разрешить»** → вас перенаправит на страницу с токеном в URL:
+
+```
+https://oauth.yandex.ru/verification_code#access_token=y0__wg...
+```
+
+Скопируйте значение `access_token` и вставьте в `.env`:
+
+```env
+YANDEX_METRIKA_TOKEN=y0__wg...
+```
+
+---
+
+### Номер счётчика
+
+Номер счётчика виден в URL при открытии Метрики:
+
+```
+https://metrika.yandex.ru/stat/visits?id=XXXXXXXX
+```
+
+Или в интерфейсе: **Метрика → Настройки счётчика → Номер счётчика**.
+
+```env
+YANDEX_METRIKA_COUNTER_ID=XXXXXXXX
+```
+
+---
+
+## Конфигурация
+
+Все настройки в `config/moonshine-yandex-metrika.php`:
 
 ```php
 return [
     'token'      => env('YANDEX_METRIKA_TOKEN'),
     'counter_id' => env('YANDEX_METRIKA_COUNTER_ID'),
 
-    // Default period in days
+    // Период по умолчанию (дней)
     'days' => 30,
 
-    // Cache TTL in seconds (0 = disabled)
+    // Кэш в секундах (0 = отключить)
     'cache_ttl' => 3600,
 
-    // Which widgets to show
+    // Отдельное хранилище кэша (null = дефолтное)
+    'cache_store' => null,
+
+    // Какие виджеты показывать
     'widgets' => [
-        'visits'          => true,
-        'pageviews'       => true,
-        'unique_visitors' => true,
-        'bounce_rate'     => true,
-        'top_pages'       => true,
-        'traffic_sources' => true,
-        'search_phrases'  => true,
-        'geo'             => true,
-        'browsers'        => true,
+        'visits'          => true,   // Визиты
+        'pageviews'       => true,   // Просмотры
+        'unique_visitors' => true,   // Уникальные посетители
+        'bounce_rate'     => true,   // Отказы
+        'top_pages'       => true,   // Топ страниц
+        'traffic_sources' => true,   // Источники трафика
+        'search_phrases'  => true,   // Поисковые фразы
+        'geo'             => true,   // Страны
+        'browsers'        => true,   // Браузеры
     ],
 
+    // Макс. строк в таблицах
     'max_results' => 10,
-    'page_title'  => 'Яндекс.Метрика',
-    'page_icon'   => 'presentation-chart-bar',
+
+    // Заголовок и иконка пункта меню
+    'page_title' => 'Яндекс.Метрика',
+    'page_icon'  => 'presentation-chart-bar',
 ];
 ```
 
 ---
 
-## Using the Service Directly
+## Использование сервиса напрямую
 
-You can inject `MetrikaService` anywhere in your application:
+`MetrikaService` можно инжектировать куда угодно:
 
 ```php
-use YourVendor\MoonshineYandexMetrika\Services\MetrikaService;
+use Tikhomirov\MoonshineYandexMetrika\Services\MetrikaService;
 
 class MyController extends Controller
 {
@@ -124,31 +200,30 @@ class MyController extends Controller
 }
 ```
 
-### Available methods
+### Доступные методы
 
-| Method | Description |
+| Метод | Описание |
 |---|---|
-| `totalVisits(?int $days)` | Total visits |
-| `totalPageViews(?int $days)` | Total page views |
-| `uniqueVisitors(?int $days)` | Unique visitors |
-| `bounceRate(?int $days)` | Bounce rate (%) |
-| `topPages(?int $days, int $maxResults)` | Most viewed pages |
-| `trafficSources(?int $days, int $maxResults)` | Traffic sources |
-| `searchPhrases(?int $days, int $maxResults)` | Search phrases |
-| `geoCountries(?int $days, int $maxResults)` | Visits by country |
-| `browsers(?int $days, int $maxResults)` | Visits by browser |
-| `visitsByDay(?int $days)` | Visits per day (for charts) |
-| `request(array $params)` | Raw API request |
+| `totalVisits(?int $days)` | Всего визитов |
+| `totalPageViews(?int $days)` | Всего просмотров |
+| `uniqueVisitors(?int $days)` | Уникальных посетителей |
+| `bounceRate(?int $days)` | Процент отказов |
+| `topPages(?int $days, int $maxResults)` | Топ страниц по просмотрам |
+| `trafficSources(?int $days, int $maxResults)` | Источники трафика |
+| `searchPhrases(?int $days, int $maxResults)` | Поисковые фразы |
+| `geoCountries(?int $days, int $maxResults)` | Визиты по странам |
+| `browsers(?int $days, int $maxResults)` | Визиты по браузерам |
+| `visitsByDay(?int $days)` | Визиты по дням (для графиков) |
+| `request(array $params)` | Произвольный запрос к API |
 
 ---
 
-## Extending
+## Расширение
 
-### Custom dashboard page
+### Своя страница дашборда
 
 ```php
-use YourVendor\MoonshineYandexMetrika\Pages\MetrikaDashboardPage;
-use YourVendor\MoonshineYandexMetrika\Services\MetrikaService;
+use Tikhomirov\MoonshineYandexMetrika\Pages\MetrikaDashboardPage;
 
 class MyMetrikaPage extends MetrikaDashboardPage
 {
@@ -156,47 +231,42 @@ class MyMetrikaPage extends MetrikaDashboardPage
     {
         $base = iterator_to_array(parent::components());
 
-        // Add your own components...
-        $base[] = Box::make('My Widget', [...]);
+        $base[] = Box::make('Мой виджет', [...]);
 
         return $base;
     }
 }
 ```
 
-### Custom views
+### Публикация шаблонов
 
 ```bash
 php artisan vendor:publish --tag=moonshine-yandex-metrika-views
 ```
 
-Then edit files in `resources/views/vendor/moonshine-yandex-metrika/`.
+Затем редактируй файлы в `resources/views/vendor/moonshine-yandex-metrika/`.
 
 ---
 
-## Localization
+## Локализация
 
-English and Russian are included. To publish translations:
+Поставляется с переводами на **русский** и **английский**. Для публикации:
 
 ```bash
 php artisan vendor:publish --tag=moonshine-yandex-metrika-lang
 ```
 
-Then edit `lang/vendor/moonshine-yandex-metrika/`.
-
 ---
 
-## Caching
-
-Responses are cached using your default Laravel cache driver. Tune with:
+## Кэширование
 
 ```env
-YANDEX_METRIKA_CACHE_TTL=3600       # seconds, 0 = no cache
-YANDEX_METRIKA_CACHE_STORE=redis    # optional: specific cache store
+YANDEX_METRIKA_CACHE_TTL=3600      # секунд, 0 = без кэша
+YANDEX_METRIKA_CACHE_STORE=redis   # опционально: конкретный драйвер
 ```
 
 ---
 
-## License
+## Лицензия
 
-MIT — see [LICENSE](LICENSE).
+MIT — см. [LICENSE](LICENSE).
