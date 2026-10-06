@@ -4,28 +4,29 @@ declare(strict_types=1);
 
 namespace Tikhomirov\MoonshineYandexMetrika\Pages;
 
-use MoonShine\Laravel\Pages\Page;
 use MoonShine\Contracts\UI\ComponentContract;
-use MoonShine\UI\Components\Metrics\Wrapped\ValueMetric;
-use MoonShine\UI\Components\Layout\Grid;
-use MoonShine\UI\Components\Layout\Column;
-use MoonShine\UI\Components\Layout\Box;
-use MoonShine\UI\Components\Table\TableBuilder;
-use MoonShine\UI\Fields\Text;
-use MoonShine\UI\Fields\Number;
+use MoonShine\Laravel\Pages\Page;
 use MoonShine\Support\Enums\Color;
-use Tikhomirov\MoonshineYandexMetrika\Services\MetrikaService;
+use MoonShine\UI\Components\Layout\Box;
+use MoonShine\UI\Components\Layout\Column;
+use MoonShine\UI\Components\Layout\Grid;
+use MoonShine\UI\Components\Metrics\Wrapped\ValueMetric;
+use MoonShine\UI\Components\Table\TableBuilder;
+use MoonShine\UI\Fields\Number;
+use MoonShine\UI\Fields\Text;
 use Tikhomirov\MoonshineYandexMetrika\Components\LineChartComponent;
+use Tikhomirov\MoonshineYandexMetrika\Services\MetrikaService;
 
 class MetrikaDashboardPage extends Page
 {
     protected string $pageIcon = 'presentation-chart-bar';
 
-    protected MetrikaService $metrika;
+    protected ?MetrikaService $metrika = null;
 
-    public function __construct()
+    protected function booted(): void
     {
-        parent::__construct();
+        parent::booted();
+
         $this->metrika = app(MetrikaService::class);
     }
 
@@ -44,9 +45,9 @@ class MetrikaDashboardPage extends Page
      */
     protected function components(): iterable
     {
-        $widgets  = config('moonshine-yandex-metrika.widgets', []);
-        $days     = (int) config('moonshine-yandex-metrika.days', 30);
-        $maxRes   = (int) config('moonshine-yandex-metrika.max_results', 10);
+        $widgets = config('moonshine-yandex-metrika.widgets', []);
+        $days = (int) config('moonshine-yandex-metrika.days', 30);
+        $maxRes = (int) config('moonshine-yandex-metrika.max_results', 10);
         $components = [];
 
         // ── Summary value metrics ──────────────────────────────────────────
@@ -78,7 +79,7 @@ class MetrikaDashboardPage extends Page
 
         if ($widgets['bounce_rate'] ?? true) {
             $summaryMetrics[] = ValueMetric::make(__('moonshine-yandex-metrika::metrics.bounce_rate'))
-                ->value($this->metrika->bounceRate($days) . '%')
+                ->value($this->metrika->bounceRate($days).'%')
                 ->icon('presentation-chart-line')
                 ->iconColor(Color::WARNING)
                 ->columnSpan(3);
@@ -176,9 +177,9 @@ class MetrikaDashboardPage extends Page
     {
         $rows = collect($this->metrika->trafficSources($days, $maxResults))
             ->map(fn ($r) => [
-                'source'  => $r['dimension'],
-                'visits'  => $r['metrics'][0] ?? 0,
-                'users'   => $r['metrics'][1] ?? 0,
+                'source' => $r['dimension'],
+                'visits' => $r['metrics'][0] ?? 0,
+                'users' => $r['metrics'][1] ?? 0,
             ]);
 
         return TableBuilder::make(fields: [
