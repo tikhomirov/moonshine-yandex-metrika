@@ -41,7 +41,14 @@ jobs:
       - name: Install dependencies
         run: |
           composer require "laravel/framework:${{ matrix.laravel }}" "moonshine/moonshine:${{ matrix.moonshine }}" --no-update
-          composer update --prefer-dist --no-interaction --no-progress
+          # Laravel 11 is EOL: Packagist flags every 11.* release with security
+          # advisories, so Composer 2.9+ would refuse the install. Support stays
+          # in composer.json; --no-blocking is only used for the 11.* matrix jobs.
+          if [[ "${{ matrix.laravel }}" == 11.* ]]; then
+            composer update --prefer-dist --no-interaction --no-progress --no-blocking
+          else
+            composer update --prefer-dist --no-interaction --no-progress
+          fi
 
       - name: Run tests
         run: vendor/bin/pest
