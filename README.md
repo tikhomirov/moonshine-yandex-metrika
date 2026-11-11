@@ -4,7 +4,7 @@
 [![PHP Version](https://img.shields.io/packagist/php-v/tikhomirov/moonshine-yandex-metrika)](https://packagist.org/packages/tikhomirov/moonshine-yandex-metrika)
 [![License](https://img.shields.io/packagist/l/tikhomirov/moonshine-yandex-metrika)](LICENSE)
 
-Пакет добавляет в [MoonShine 4.x](https://moonshine-laravel.com) отдельную страницу дашборда с ключевой статистикой из **Яндекс.Метрики**: визиты, просмотры, уник посетители, отказы, топ страниц, источники трафика, поисковые фразы, страны, браузеры.
+Пакет добавляет в [MoonShine](https://moonshine-laravel.com) 4.x и 5.x отдельную страницу дашборда с ключевой статистикой из **Яндекс.Метрики**: визиты, просмотры, уник посетители, отказы, топ страниц, источники трафика, поисковые фразы, страны, браузеры.
 
 ![Dashboard preview](docs/preview.png)
 
@@ -12,9 +12,9 @@
 
 ## Требования
 
-- PHP 8.2+
-- Laravel 11 или 12
-- MoonShine 4.x
+- PHP 8.2+. Для MoonShine 5 нужен PHP 8.4.
+- Laravel 11, 12 или 13
+- MoonShine 4.x или 5.x
 
 ---
 
