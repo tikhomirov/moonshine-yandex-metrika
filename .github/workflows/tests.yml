@@ -15,11 +15,19 @@ jobs:
       matrix:
         php: ['8.2', '8.3', '8.4']
         laravel: ['11.*', '12.*', '13.*']
+        moonshine: ['^4.0']
         exclude:
           - php: '8.2'
             laravel: '13.*'
+        include:
+          - php: '8.4'
+            laravel: '12.*'
+            moonshine: '5.x-dev'
+          - php: '8.4'
+            laravel: '13.*'
+            moonshine: '5.x-dev'
 
-    name: PHP ${{ matrix.php }} - Laravel ${{ matrix.laravel }}
+    name: PHP ${{ matrix.php }} - Laravel ${{ matrix.laravel }} - MoonShine ${{ matrix.moonshine }}
 
     steps:
       - uses: actions/checkout@v4
@@ -32,7 +40,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          composer require "laravel/framework:${{ matrix.laravel }}" --no-update
+          composer require "laravel/framework:${{ matrix.laravel }}" "moonshine/moonshine:${{ matrix.moonshine }}" --no-update
           composer update --prefer-dist --no-interaction --no-progress
 
       - name: Run tests
