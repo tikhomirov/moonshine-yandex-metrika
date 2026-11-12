@@ -17,15 +17,15 @@ class LineChartComponent extends MoonShineComponent
 
     protected array $chartData = [];
 
-    final public function __construct(array $chartData)
+    /**
+     * Use the inherited MoonShine `make(...$arguments)`: `LineChartComponent::make($chartData)`.
+     * A narrower `make(array $chartData)` override is incompatible with the parent
+     * signature and causes a fatal error when the class is loaded.
+     */
+    final public function __construct(array $chartData = [])
     {
         parent::__construct();
         $this->chartData = $chartData;
-    }
-
-    public static function make(array $chartData): static
-    {
-        return new static($chartData);
     }
 
     public function getLabels(): array
