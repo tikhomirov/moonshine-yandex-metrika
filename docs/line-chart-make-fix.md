@@ -15,4 +15,4 @@
 
 ## Коммиты
 
-- 38758e6 — fix: LineChartComponent uses inherited make(), add dashboard render test
+- a77a7a4e354d2ad54b88f04c5110d2205619e31a — fix: LineChartComponent uses inherited make(), add dashboard render test
