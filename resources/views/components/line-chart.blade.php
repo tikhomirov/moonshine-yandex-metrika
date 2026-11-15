@@ -4,10 +4,14 @@
     <canvas id="{{ $chartId }}"></canvas>
 </div>
 
+@include('moonshine-yandex-metrika::components.chart-theme')
+
 <script>
 (function () {
-    const ctx = document.getElementById('{{ $chartId }}').getContext('2d');
-    new Chart(ctx, {
+    const el = document.getElementById('{{ $chartId }}');
+    if (!el || typeof Chart === 'undefined') { return; }
+    const colors = ymMetrikaChartColors();
+    const chart = new Chart(el.getContext('2d'), {
         type: 'line',
         data: {
             labels: {!! $labels !!},
@@ -15,7 +19,7 @@
                 label: '{{ __("moonshine-yandex-metrika::metrics.visits") }}',
                 data: {!! $values !!},
                 borderColor: 'rgb(99, 102, 241)',
-                backgroundColor: 'rgba(99, 102, 241, 0.08)',
+                backgroundColor: colors.fill,
                 borderWidth: 2,
                 pointRadius: 3,
                 fill: true,
@@ -29,11 +33,9 @@
                 legend: { display: false },
                 tooltip: { mode: 'index', intersect: false }
             },
-            scales: {
-                x: { grid: { display: false } },
-                y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } }
-            }
+            scales: ymMetrikaChartScales(colors)
         }
     });
+    ymWatchMetrikaChartTheme(chart);
 })();
 </script>

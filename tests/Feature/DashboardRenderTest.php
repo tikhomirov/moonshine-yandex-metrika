@@ -125,7 +125,9 @@ test('line chart component is created via inherited make() and renders', functio
     $html = (string) $chart->render();
 
     expect($html)->toContain('<canvas id="metrika_chart_')
-        ->and($html)->toContain('["2026-11-01","2026-11-02"]');
+        ->and($html)->toContain('["2026-11-01","2026-11-02"]')
+        ->and($html)->toContain('ymMetrikaChartColors')
+        ->and($html)->toContain('--ms-cm-base-text');
 });
 
 test('line chart component accepts empty data', function () {
@@ -142,6 +144,12 @@ test('metrika dashboard renders all default widgets including visits chart', fun
     expect($html)->toContain('ym-tabs')
         ->and($html)->toContain('ym-stats')
         ->and($html)->toContain('ym-stat__value')
+        ->and($html)->toContain('background:var(--ms-cm-base-default')
+        ->and($html)->toContain('color:var(--ms-cm-base-text')
+        ->and($html)->toContain('color-scheme:dark')
+        ->and($html)->not->toContain('background:#fff')
+        ->and($html)->not->toContain('background:#1e293b')
+        ->and($html)->toContain('ymMetrikaChartColors')
         ->and($html)->toContain('<canvas id="metrika_chart_')
         ->and($html)->toContain('2026-11-02')
         ->and($html)->toContain('42');
