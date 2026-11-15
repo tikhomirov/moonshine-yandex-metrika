@@ -477,24 +477,12 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
     line-height:36px;
     user-select:none;
   }
-  .ym-toolbar__period .ym-apply {
-    all: unset;
-    box-sizing:border-box;
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
+  /* "Apply" uses the stock MoonShine button so its colour follows the theme palette. */
+  .ym-toolbar__period .btn {
+    min-height:36px;
     height:36px;
-    padding:0 14px;
-    border-radius:8px;
-    background:var(--ms-cm-primary, #1e293b);
-    color:var(--ms-cm-primary-text, #fff);
-    font: inherit;
-    font-size:14px;
-    font-weight:600;
-    cursor:pointer;
     white-space:nowrap;
   }
-  .ym-toolbar__period .ym-apply:hover { filter:brightness(1.08); }
   .ym-cabinet-links{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;}
   .ym-queries-period{display:flex;flex-direction:column;gap:.625rem;}
   .ym-stats {
@@ -605,7 +593,7 @@ HTML;
     <input type="date" name="date_from" value="{$date1}" class="ym-date" required aria-label="date from">
     <span class="ym-toolbar__sep">—</span>
     <input type="date" name="date_to" value="{$date2}" class="ym-date" required aria-label="date to">
-    <button type="submit" class="ym-apply">{$applyLabel}</button>
+    <button type="submit" class="btn btn-primary btn-sm">{$applyLabel}</button>
   </form>
 </div>
 HTML;

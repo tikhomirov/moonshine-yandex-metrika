@@ -149,6 +149,8 @@ test('metrika dashboard renders all default widgets including visits chart', fun
         ->and($html)->toContain('color-scheme:dark')
         ->and($html)->not->toContain('background:#fff')
         ->and($html)->not->toContain('background:#1e293b')
+        ->and($html)->toContain('class="btn btn-primary btn-sm">')
+        ->and($html)->not->toContain('ym-apply')
         ->and($html)->toContain('ymMetrikaChartColors')
         ->and($html)->toContain('<canvas id="metrika_chart_')
         ->and($html)->toContain('2026-11-02')

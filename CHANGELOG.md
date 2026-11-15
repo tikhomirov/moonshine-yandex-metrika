@@ -5,11 +5,12 @@ All notable changes to this package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.2.1] - 2026-11-16
 
 ### Fixed
 
-- KPI cards, the period picker, and the visits chart follow MoonShine light and dark color tokens instead of hardcoded white surfaces
+- Dashboard follows MoonShine light and dark color tokens instead of hardcoded white surfaces (KPI cards, period picker, visits chart)
+- "Apply" in the period bar is a stock MoonShine button (`btn btn-primary btn-sm`) instead of a custom `.ym-apply` block, so its colour follows the active theme palette
 
 ## [1.2.0] - 2026-11-15
 
