@@ -13,19 +13,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php: ['8.2', '8.3', '8.4']
-        laravel: ['11.*', '12.*', '13.*']
-        moonshine: ['^4.0']
-        exclude:
-          - php: '8.2'
-            laravel: '13.*'
-        include:
-          - php: '8.4'
-            laravel: '12.*'
-            moonshine: '5.x-dev'
-          - php: '8.4'
-            laravel: '13.*'
-            moonshine: '5.x-dev'
+        php: ['8.4']
+        laravel: ['12.*', '13.*']
+        moonshine: ['^5.0']
 
     name: PHP ${{ matrix.php }} - Laravel ${{ matrix.laravel }} - MoonShine ${{ matrix.moonshine }}
 
@@ -41,14 +31,7 @@ jobs:
       - name: Install dependencies
         run: |
           composer require "laravel/framework:${{ matrix.laravel }}" "moonshine/moonshine:${{ matrix.moonshine }}" --no-update
-          # Laravel 11 is EOL: Packagist flags every 11.* release with security
-          # advisories, so Composer 2.9+ would refuse the install. Support stays
-          # in composer.json; --no-blocking is only used for the 11.* matrix jobs.
-          if [[ "${{ matrix.laravel }}" == 11.* ]]; then
-            composer update --prefer-dist --no-interaction --no-progress --no-blocking
-          else
-            composer update --prefer-dist --no-interaction --no-progress
-          fi
+          composer update --prefer-dist --no-interaction --no-progress
 
       - name: Run tests
         run: vendor/bin/pest

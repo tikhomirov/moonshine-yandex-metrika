@@ -50,9 +50,8 @@ YANDEX_METRIKA_DEFAULT_PRESET=today
 YANDEX_WEBMASTER_HOST_ID=https:example.com:443
 ```
 
-4. Register page in MoonShine `pages()` / menu:
-   - MS4: `MenuItem::make('Яндекс.Метрика', MetrikaDashboardPage::class)->icon('…')`
-   - MS5: often `MenuItem::make(MetrikaDashboardPage::class, 'Яндекс.Метрика')` in Layout
+4. Register the page in the MoonShine 5 Layout / menu and custom page list:
+   - `MenuItem::make(MetrikaDashboardPage::class, 'Яндекс.Метрика')`
 5. Prefer thin subclass in host app if you need local overrides:
 
 ```php

@@ -11,10 +11,9 @@
 
 <p align="center">
   <a href="https://packagist.org/packages/tikhomirov/moonshine-yandex-metrika"><img src="https://img.shields.io/packagist/v/tikhomirov/moonshine-yandex-metrika?style=for-the-badge" alt="Версия Packagist"></a>
-  <a href="https://packagist.org/packages/tikhomirov/moonshine-yandex-metrika"><img src="https://img.shields.io/packagist/dt/tikhomirov/moonshine-yandex-metrika?style=for-the-badge" alt="Загрузки"></a>
-  <img src="https://img.shields.io/badge/PHP-8.2%2B-777BB4?style=for-the-badge&logo=php&logoColor=white" alt="PHP 8.2+">
-  <img src="https://img.shields.io/badge/MoonShine-4%20%7C%205-6C4AB6?style=for-the-badge" alt="MoonShine 4 и 5">
-  <a href="LICENSE"><img src="https://img.shields.io/packagist/l/tikhomirov/moonshine-yandex-metrika?style=for-the-badge" alt="Лицензия MIT"></a>
+  <img src="https://img.shields.io/badge/PHP-8.4%2B-777BB4?style=for-the-badge&logo=php&logoColor=white" alt="PHP 8.4+">
+  <img src="https://img.shields.io/badge/MoonShine-5.x-6C4AB6?style=for-the-badge" alt="MoonShine 5.x">
+  <a href="https://github.com/tikhomirov/moonshine-yandex-metrika/actions/workflows/tests.yml"><img src="https://github.com/tikhomirov/moonshine-yandex-metrika/actions/workflows/tests.yml/badge.svg" alt="Тесты"></a>
 </p>
 
 <p align="center">
@@ -35,9 +34,9 @@
 
 | Компонент | Версия |
 |---|---|
-| PHP | 8.2+ (для MoonShine 5 — 8.4+) |
-| Laravel | 11, 12 или 13 |
-| MoonShine | 4.x или 5.x |
+| PHP | 8.4+ |
+| Laravel | 12 или 13 |
+| MoonShine | 5.x |
 
 ## Установка
 
@@ -51,11 +50,6 @@ php artisan vendor:publish --tag=moonshine-yandex-metrika-config
 ```php
 use Tikhomirov\MoonshineYandexMetrika\Pages\MetrikaDashboardPage;
 
-// MoonShine 4
-MenuItem::make('Яндекс.Метрика', MetrikaDashboardPage::class)
-    ->icon('presentation-chart-bar');
-
-// MoonShine 5
 MenuItem::make(MetrikaDashboardPage::class, 'Яндекс.Метрика');
 ```
 
