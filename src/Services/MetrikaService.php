@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace Tikhomirov\MoonshineYandexMetrika\Services;
 
+use Carbon\Carbon;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Cache;
-use Carbon\Carbon;
+use Tikhomirov\MoonshineYandexMetrika\Support\DatePeriod;
 
 class MetrikaService
 {
@@ -19,6 +20,10 @@ class MetrikaService
 
     protected int $days;
 
+    protected string $date1;
+
+    protected string $date2;
+
     protected int $cacheTtl;
 
     protected ?string $cacheStore;
@@ -27,18 +32,29 @@ class MetrikaService
 
     public function __construct()
     {
-        $this->token      = (string) config('moonshine-yandex-metrika.token');
-        $this->counterId  = (string) config('moonshine-yandex-metrika.counter_id');
-        $this->days       = (int)    config('moonshine-yandex-metrika.days', 30);
-        $this->cacheTtl   = (int)    config('moonshine-yandex-metrika.cache_ttl', 3600);
+        $this->token = (string) config('moonshine-yandex-metrika.token');
+        $this->counterId = (string) config('moonshine-yandex-metrika.counter_id');
+        $this->days = (int) config('moonshine-yandex-metrika.days', 0);
+        $this->cacheTtl = (int) config('moonshine-yandex-metrika.cache_ttl', 3600);
         $this->cacheStore = config('moonshine-yandex-metrika.cache_store');
-        $this->apiUrl     = (string) config('moonshine-yandex-metrika.api_url', 'https://api-metrika.yandex.net/stat/v1/data');
+        $this->apiUrl = (string) config('moonshine-yandex-metrika.api_url', 'https://api-metrika.yandex.net/stat/v1/data');
+
+        $defaultPeriod = $this->days > 0
+            ? new DatePeriod(
+                Carbon::today()->subDays($this->days),
+                Carbon::today(),
+                DatePeriod::PRESET_CUSTOM,
+            )
+            : DatePeriod::today();
+
+        $this->date1 = $defaultPeriod->date1();
+        $this->date2 = $defaultPeriod->date2();
 
         $this->http = new Client([
             'base_uri' => $this->apiUrl,
-            'headers'  => [
+            'headers' => [
                 'Authorization' => "OAuth {$this->token}",
-                'Accept'        => 'application/json',
+                'Accept' => 'application/json',
             ],
             'timeout' => 15,
         ]);
@@ -46,29 +62,42 @@ class MetrikaService
 
     /**
      * Raw API request with caching.
+     *
+     * @param  array<string, mixed>  $params
+     * @return array<string, mixed>|null
      */
     public function request(array $params): ?array
     {
-        $cacheKey = 'yandex_metrika_' . md5(serialize($params));
+        $query = array_merge([
+            'ids' => $this->counterId,
+            'date1' => $this->date1,
+            'date2' => $this->date2,
+        ], $params);
+
+        $cacheKey = 'yandex_metrika_'.md5(serialize($query));
 
         $store = $this->cacheTtl > 0
             ? ($this->cacheStore ? Cache::store($this->cacheStore) : Cache::store())
             : null;
 
         if ($store && $store->has($cacheKey)) {
-            return $store->get($cacheKey);
+            /** @var array<string, mixed> $cached */
+            $cached = $store->get($cacheKey);
+
+            return $cached;
         }
 
         try {
             $response = $this->http->get('', [
-                'query' => array_merge([
-                    'ids'    => $this->counterId,
-                    'date1'  => Carbon::today()->subDays($this->days)->format('Y-m-d'),
-                    'date2'  => Carbon::today()->format('Y-m-d'),
-                ], $params),
+                'query' => $query,
             ]);
 
+            /** @var array<string, mixed>|null $data */
             $data = json_decode($response->getBody()->getContents(), true);
+
+            if (! is_array($data)) {
+                return null;
+            }
 
             if ($store) {
                 $store->put($cacheKey, $data, $this->cacheTtl);
@@ -76,15 +105,12 @@ class MetrikaService
 
             return $data;
         } catch (GuzzleException $e) {
-            logger()->channel('single')->error('[YandexMetrika] API error: ' . $e->getMessage());
+            logger()->channel('single')->error('[YandexMetrika] API error: '.$e->getMessage());
 
             return null;
         }
     }
 
-    /**
-     * Total visits for the period.
-     */
     public function totalVisits(?int $days = null): int
     {
         $data = $this->forDays($days)->request([
@@ -94,9 +120,6 @@ class MetrikaService
         return (int) ($data['totals'][0] ?? 0);
     }
 
-    /**
-     * Total page views for the period.
-     */
     public function totalPageViews(?int $days = null): int
     {
         $data = $this->forDays($days)->request([
@@ -106,9 +129,6 @@ class MetrikaService
         return (int) ($data['totals'][0] ?? 0);
     }
 
-    /**
-     * Unique visitors for the period.
-     */
     public function uniqueVisitors(?int $days = null): int
     {
         $data = $this->forDays($days)->request([
@@ -118,9 +138,6 @@ class MetrikaService
         return (int) ($data['totals'][0] ?? 0);
     }
 
-    /**
-     * Bounce rate (%) for the period.
-     */
     public function bounceRate(?int $days = null): float
     {
         $data = $this->forDays($days)->request([
@@ -131,98 +148,114 @@ class MetrikaService
     }
 
     /**
-     * Most viewed pages.
+     * @return list<array{dimension: string, metrics: list<float|int>}>
      */
     public function topPages(?int $days = null, int $maxResults = 10): array
     {
         $data = $this->forDays($days)->request([
-            'metrics'    => 'ym:pv:pageviews',
+            'metrics' => 'ym:pv:pageviews',
             'dimensions' => 'ym:pv:URL',
-            'limit'      => $maxResults,
-            'sort'       => '-ym:pv:pageviews',
+            'limit' => $maxResults,
+            'sort' => '-ym:pv:pageviews',
         ]);
 
         return $this->extractRows($data);
     }
 
     /**
-     * Traffic sources summary.
+     * @return list<array{dimension: string, metrics: list<float|int>}>
      */
     public function trafficSources(?int $days = null, int $maxResults = 10): array
     {
         $data = $this->forDays($days)->request([
-            'metrics'    => 'ym:s:visits,ym:s:users',
+            'metrics' => 'ym:s:visits,ym:s:users',
             'dimensions' => 'ym:s:trafficSourceName',
-            'limit'      => $maxResults,
-            'sort'       => '-ym:s:visits',
+            'limit' => $maxResults,
+            'sort' => '-ym:s:visits',
         ]);
 
         return $this->extractRows($data);
     }
 
     /**
-     * Top search phrases.
+     * @return list<array{dimension: string, metrics: list<float|int>}>
      */
     public function searchPhrases(?int $days = null, int $maxResults = 10): array
     {
         $data = $this->forDays($days)->request([
-            'metrics'    => 'ym:s:visits',
+            'metrics' => 'ym:s:visits',
             'dimensions' => 'ym:s:searchPhrase',
-            'filters'    => "ym:s:searchPhrase!='(not set)'",
-            'limit'      => $maxResults,
-            'sort'       => '-ym:s:visits',
+            'filters' => "ym:s:searchPhrase!='(not set)'",
+            'limit' => $maxResults,
+            'sort' => '-ym:s:visits',
         ]);
 
         return $this->extractRows($data);
     }
 
     /**
-     * Visits by country.
+     * @return list<array{dimension: string, metrics: list<float|int>}>
      */
     public function geoCountries(?int $days = null, int $maxResults = 20): array
     {
         $data = $this->forDays($days)->request([
-            'metrics'    => 'ym:s:visits',
+            'metrics' => 'ym:s:visits',
             'dimensions' => 'ym:s:regionCountry',
-            'limit'      => $maxResults,
-            'sort'       => '-ym:s:visits',
+            'limit' => $maxResults,
+            'sort' => '-ym:s:visits',
         ]);
 
         return $this->extractRows($data);
     }
 
     /**
-     * Visits by browser.
+     * @return list<array{dimension: string, metrics: list<float|int>}>
      */
     public function browsers(?int $days = null, int $maxResults = 10): array
     {
         $data = $this->forDays($days)->request([
-            'metrics'    => 'ym:s:visits',
+            'metrics' => 'ym:s:visits',
             'dimensions' => 'ym:s:browser',
-            'limit'      => $maxResults,
-            'sort'       => '-ym:s:visits',
+            'limit' => $maxResults,
+            'sort' => '-ym:s:visits',
         ]);
 
         return $this->extractRows($data);
     }
 
     /**
-     * Visits per day (for line chart).
+     * @return list<array{dimension: string, metrics: list<float|int>}>
      */
     public function visitsByDay(?int $days = null): array
     {
-        $data = $this->forDays($days)->request([
-            'metrics'    => 'ym:s:visits',
+        $scoped = $this->forDays($days);
+        $limit = max(1, Carbon::parse($scoped->date1)->diffInDays(Carbon::parse($scoped->date2)) + 1);
+
+        $data = $scoped->request([
+            'metrics' => 'ym:s:visits',
             'dimensions' => 'ym:s:date',
-            'sort'       => 'ym:s:date',
-            'limit'      => $days ?? $this->days,
+            'sort' => 'ym:s:date',
+            'limit' => $limit,
         ]);
 
         return $this->extractRows($data);
     }
 
     /**
-     * Set period in days for the next request (fluent, returns clone).
+     * Задать абсолютный период (fluent, clone).
+     */
+    public function forPeriod(DatePeriod $period): static
+    {
+        $clone = clone $this;
+        $clone->date1 = $period->date1();
+        $clone->date2 = $period->date2();
+        $clone->days = $period->dayCount();
+
+        return $clone;
+    }
+
+    /**
+     * Set period in days ending today (fluent, returns clone). Kept for BC.
      */
     public function forDays(?int $days): static
     {
@@ -230,14 +263,23 @@ class MetrikaService
             return $this;
         }
 
-        $clone       = clone $this;
-        $clone->days = $days;
+        $period = new DatePeriod(
+            Carbon::today()->subDays($days),
+            Carbon::today(),
+            DatePeriod::PRESET_CUSTOM,
+        );
 
-        return $clone;
+        return $this->forPeriod($period);
     }
 
-    // ------------------------------------------------- helpers
+    public function isConfigured(): bool
+    {
+        return $this->token !== '' && $this->counterId !== '';
+    }
 
+    /**
+     * @return list<array{dimension: string, metrics: list<float|int>}>
+     */
     protected function extractRows(?array $data): array
     {
         if (empty($data['data'])) {
@@ -246,11 +288,11 @@ class MetrikaService
 
         return array_map(function (array $row) {
             $dimensions = array_map(fn ($d) => $d['name'] ?? $d['id'] ?? '', $row['dimensions'] ?? []);
-            $metrics    = $row['metrics'] ?? [];
+            $metrics = $row['metrics'] ?? [];
 
             return [
                 'dimension' => implode(' / ', $dimensions),
-                'metrics'   => $metrics,
+                'metrics' => $metrics,
             ];
         }, $data['data']);
     }

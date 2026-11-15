@@ -1,7 +1,7 @@
 {
     "name": "tikhomirov/moonshine-yandex-metrika",
-    "description": "Yandex Metrika dashboard page for MoonShine 4.x and 5.x admin panels",
-    "keywords": ["laravel", "moonshine", "yandex", "metrika", "analytics", "dashboard"],
+    "description": "Yandex Metrika + Webmaster dashboard page for MoonShine 4.x and 5.x admin panels",
+    "keywords": ["laravel", "moonshine", "yandex", "metrika", "webmaster", "analytics", "dashboard"],
     "license": "MIT",
     "type": "library",
     "authors": [
