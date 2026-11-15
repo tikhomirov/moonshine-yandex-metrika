@@ -1,0 +1,20 @@
+# Exclude non-runtime files from Packagist / `composer archive` dist.
+# Full clone on GitHub still has docs, tests, CI, and agent skills.
+
+/.gitattributes        export-ignore
+/.gitignore            export-ignore
+/.github/              export-ignore
+/.env.example          export-ignore
+/phpunit.xml.dist      export-ignore
+/composer.lock         export-ignore
+/tests/                export-ignore
+/docs/                 export-ignore
+# skills/ stays in the Packagist dist so host-app agents can load the playbook.
+
+# Keep line endings consistent for source files.
+*.php       text eol=lf
+*.blade.php text eol=lf
+*.md        text eol=lf
+*.json      text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf

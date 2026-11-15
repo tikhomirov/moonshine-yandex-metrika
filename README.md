@@ -4,159 +4,127 @@
 [![PHP Version](https://img.shields.io/packagist/php-v/tikhomirov/moonshine-yandex-metrika)](https://packagist.org/packages/tikhomirov/moonshine-yandex-metrika)
 [![License](https://img.shields.io/packagist/l/tikhomirov/moonshine-yandex-metrika)](LICENSE)
 
-Пакет добавляет в [MoonShine](https://moonshine-laravel.com) 4.x и 5.x дашборд **Яндекс.Метрика + Вебмастер**: вкладки, посещаемость, фильтр периода, summary индексации/ошибок/внешних ссылок, топ поисковых запросов, блок аккаунта (email/аватар) и CSV-выгрузки.
+Пакет добавляет в [MoonShine](https://moonshine-laravel.com) **4.x / 5.x** дашборд аналитики **Яндекс.Метрика + Вебмастер**.
 
 ![Dashboard preview](docs/preview.png)
+
+## Возможности
+
+- Вкладки **Метрика** и **Вебмастер** (реестр `AnalyticsTabRegistry` — можно добавить GA и др.)
+- Компактные KPI, график визитов, топ страниц / источники / фразы / гео / браузеры
+- Фильтр периода (пресеты + произвольный диапазон); на Вебмастере период влияет на **запросы**
+- Summary Вебмастера: индексация, ошибки, внешние ссылки
+- Блок аккаунта Яндекса (email / аватар)
+- CSV-экспорт Метрики и запросов Вебмастера (только для авторизованного админа MoonShine)
+- Кэш API, RU/EN локализация, точки расширения без форка пакета
+
+> Packagist-дистрибутив: runtime (`src/`, `config/`, `resources/`, `routes/`), `composer.json`, `LICENSE`, `README.md`, `CHANGELOG.md` и **`skills/`** (playbook для AI-агентов). OAuth-скриншоты, тесты и CI остаются только в [репозитории на GitHub](https://github.com/tikhomirov/moonshine-yandex-metrika).
 
 ---
 
 ## Требования
 
-- PHP 8.2+. Для MoonShine 5 нужен PHP 8.4.
-- Laravel 11, 12 или 13
-- MoonShine 4.x или 5.x
+| | |
+|---|---|
+| PHP | 8.2+ (для MoonShine 5 — 8.4+) |
+| Laravel | 11 / 12 / 13 |
+| MoonShine | 4.x или 5.x |
 
 ---
 
-## Установка пакета
+## Установка
 
 ```bash
 composer require tikhomirov/moonshine-yandex-metrika
-```
-
-Публикуем конфиг:
-
-```bash
 php artisan vendor:publish --tag=moonshine-yandex-metrika-config
 ```
 
-Добавляем в `.env`:
+`.env`:
 
 ```env
-YANDEX_METRIKA_TOKEN=ваш_токен
+YANDEX_METRIKA_TOKEN=ваш_oauth_токен
 YANDEX_METRIKA_COUNTER_ID=ваш_номер_счётчика
 YANDEX_METRIKA_DEFAULT_PRESET=today
-# host_id формата https:example.com:443 (см. GET /v4/user/{id}/hosts)
+# host_id формата https:example.com:443 (см. Webmaster API hosts)
 YANDEX_WEBMASTER_HOST_ID=https:example.com:443
 ```
 
-Регистрируем страницу в MoonShine провайдере:
+Регистрация страницы в меню MoonShine:
 
 ```php
-// app/Providers/MoonShineServiceProvider.php
+// MoonShine 4 — часто в MoonShineServiceProvider::menu()
 use Tikhomirov\MoonshineYandexMetrika\Pages\MetrikaDashboardPage;
 
-public function menu(): array
-{
-    return [
-        MenuItem::make('Яндекс.Метрика', MetrikaDashboardPage::class)
-            ->icon('presentation-chart-bar'),
-    ];
-}
+MenuItem::make('Яндекс.Метрика', MetrikaDashboardPage::class)
+    ->icon('presentation-chart-bar');
+
+// MoonShine 5 — часто в Layout:
+MenuItem::make(MetrikaDashboardPage::class, 'Яндекс.Метрика');
+```
+
+Страницу также нужно добавить в `pages()` / список ресурсов провайдера MoonShine (как любую custom page).
+
+Опционально — тонкий subclass в host-приложении:
+
+```php
+namespace App\MoonShine\Pages;
+
+use Tikhomirov\MoonshineYandexMetrika\Pages\MetrikaDashboardPage as PackagePage;
+
+final class MetrikaDashboardPage extends PackagePage {}
 ```
 
 ---
 
 ## Получение OAuth-токена
 
-Это самый трудоёмкий шаг — нужно зарегистрировать OAuth-приложение в Яндексе. Ниже подробная инструкция по каждому шагу.
+### 1. Создать приложение
 
-### Шаг 1 — Создать приложение
+1. [oauth.yandex.ru](https://oauth.yandex.ru/) → **«Зарегистрировать новое приложение»**
+2. Название, иконка (можно [`docs/icon.png`](docs/icon.png) из репозитория), почта
 
-1. Перейти на [oauth.yandex.ru](https://oauth.yandex.ru/) и нажать **«Зарегистрировать новое приложение»**
-2. Заполнить форму:
-   - **Название сервиса** — любое, например `Yandex.Metrika`
-   - **Иконка** — обязательное поле, загрузить PNG/JPG до 1 МБ (можно использовать [`docs/icon.png`](docs/icon.png) из этого репозитория)
-   - **Почта для связи** — ваша рабочая почта
+### 2. Платформы
 
----
+- Отметить **«Веб-сервисы»**
+- Redirect URI: `https://oauth.yandex.ru/verification_code`
 
-### Шаг 2 — Платформы приложений
+### 3. Права
 
-1. Отметить чекбокс **«Веб-сервисы»**
-2. В поле **Redirect URI** ввести:
-   ```
-   https://oauth.yandex.ru/verification_code
-   ```
-   Это официальный адрес Яндекса для ручного получения токена — после авторизации он покажет токен прямо на странице.
-3. Поле **Suggest Hostname** — оставить пустым
-4. Чекбоксы **iOS** и **Android** — не трогать
+| Scope | Зачем |
+|---|---|
+| `metrika:read` | статистика Метрики (**обязательно**) |
+| `webmaster:verify` | summary / индексация / запросы |
+| `webmaster:hostinfo` | внешние ссылки |
+| `login:info`, `login:email`, `login:avatar` | блок аккаунта |
 
----
+### 4. Токен
 
-### Шаг 3 — Права доступа
-
-1. Раздел **«Основные»** — ничего не отмечать (это права на данные пользователей, нам не нужны)
-2. Раздел **«Дополнительные»** / права приложения — добавить:
-   - `metrika:read` — чтение статистики Метрики *(обязательно)*
-   - `webmaster:verify` — Вебмастер: summary, индексация, запросы *(для блока Вебмастера)*
-   - `webmaster:hostinfo` — внешние ссылки *(для счётчика ссылок)*
-   - `login:info`, `login:email`, `login:avatar` — email и аватар источника данных
-   - `metrika:write` — необязательно
-
----
-
-### Шаг 4 — Завершение
-
-После финального шага Яндекс покажет страницу с **Client ID** приложения. Скопируйте его.
-
----
-
-### Получение токена
-
-Откройте в браузере (залогинившись под нужным аккаунтом Яндекса):
+Открыть (под нужным аккаунтом Яндекса):
 
 ```
 https://oauth.yandex.ru/authorize?response_type=token&client_id=ВАШ_CLIENT_ID
 ```
 
-Нажмите **«Разрешить»** → вас перенаправит на страницу с токеном в URL:
+После **«Разрешить»** скопировать `access_token` из URL в `YANDEX_METRIKA_TOKEN`.
 
-```
-https://oauth.yandex.ru/verification_code#access_token=y0__wg...
-```
+Номер счётчика — из URL Метрики (`?id=XXXXXXXX`) или **Настройки счётчика**.
 
-Скопируйте значение `access_token` и вставьте в `.env`:
-
-```env
-YANDEX_METRIKA_TOKEN=y0__wg...
-```
-
----
-
-### Номер счётчика
-
-Номер счётчика виден в URL при открытии Метрики:
-
-```
-https://metrika.yandex.ru/stat/visits?id=XXXXXXXX
-```
-
-Или в интерфейсе: **Метрика → Настройки счётчика → Номер счётчика**.
-
-```env
-YANDEX_METRIKA_COUNTER_ID=XXXXXXXX
-```
+Скриншоты шагов: [`docs/oauth-step1.jpg`](docs/oauth-step1.jpg) … [`oauth-step3.jpg`](docs/oauth-step3.jpg) (только в git-клоне).
 
 ---
 
 ## Конфигурация
 
-Все настройки в `config/moonshine-yandex-metrika.php`:
+Файл `config/moonshine-yandex-metrika.php` (после publish):
 
 ```php
 return [
-    'token'      => env('YANDEX_METRIKA_TOKEN'),
+    'token' => env('YANDEX_METRIKA_TOKEN'),
     'counter_id' => env('YANDEX_METRIKA_COUNTER_ID'),
-
-    // Legacy rolling-window для forDays(); дашборд использует default_preset
-    'days' => 0,
+    'days' => 0, // legacy forDays(); дашборд использует default_preset
     'default_preset' => 'today',
-
-    // Кэш в секундах (0 = отключить)
     'cache_ttl' => 3600,
     'cache_store' => null,
-
     'widgets' => [
         'account' => true,
         'period_filter' => true,
@@ -173,11 +141,9 @@ return [
         'webmaster_summary' => true,
         'webmaster_queries' => true,
     ],
-
     'max_results' => 10,
     'page_title' => 'Яндекс.Метрика',
-    'page_icon'  => 'presentation-chart-bar',
-
+    'page_icon' => 'presentation-chart-bar',
     'webmaster' => [
         'host_id' => env('YANDEX_WEBMASTER_HOST_ID'),
         'user_id' => env('YANDEX_WEBMASTER_USER_ID'),
@@ -187,64 +153,54 @@ return [
 
 ### Пресеты периода
 
-| Пресет | Как считается |
+| Пресет | Диапазон |
 |---|---|
 | Сегодня / Вчера | один день |
 | Неделя | сегодня − 7 … сегодня |
-| Месяц / Квартал / Полгода / Год | с начала текущего календарного периода до сегодня |
+| Месяц / Квартал / Полгода / Год | с начала календарного периода до сегодня |
 | Произвольный | `date_from` + `date_to` |
 
-CSV: `/admin/yandex-analytics/export/metrika` и `/admin/yandex-analytics/export/webmaster` (под префиксом MoonShine, только для авторизованного админа).
+CSV (под префиксом MoonShine, auth admin):
+
+- `/admin/yandex-analytics/export/metrika`
+- `/admin/yandex-analytics/export/webmaster`
+
+```env
+YANDEX_METRIKA_CACHE_TTL=3600
+YANDEX_METRIKA_CACHE_STORE=redis
+```
 
 ---
 
-## Использование сервиса напрямую
-
-`MetrikaService` можно инжектировать куда угодно:
+## Сервисы
 
 ```php
 use Tikhomirov\MoonshineYandexMetrika\Services\MetrikaService;
 
-class MyController extends Controller
+public function index(MetrikaService $metrika)
 {
-    public function index(MetrikaService $metrika)
-    {
-        $visits  = $metrika->totalVisits(days: 7);
-        $pages   = $metrika->topPages(days: 7, maxResults: 5);
-        $sources = $metrika->trafficSources();
-    }
+    $visits = $metrika->totalVisits(days: 7);
+    $pages = $metrika->topPages(days: 7, maxResults: 5);
 }
 ```
 
-### Доступные методы
-
 | Метод | Описание |
 |---|---|
-| `totalVisits(?int $days)` | Всего визитов |
-| `totalPageViews(?int $days)` | Всего просмотров |
-| `uniqueVisitors(?int $days)` | Уникальных посетителей |
-| `bounceRate(?int $days)` | Процент отказов |
-| `topPages(?int $days, int $maxResults)` | Топ страниц по просмотрам |
-| `trafficSources(?int $days, int $maxResults)` | Источники трафика |
-| `searchPhrases(?int $days, int $maxResults)` | Поисковые фразы |
-| `geoCountries(?int $days, int $maxResults)` | Визиты по странам |
-| `browsers(?int $days, int $maxResults)` | Визиты по браузерам |
-| `visitsByDay(?int $days)` | Визиты по дням (для графиков) |
-| `forPeriod(DatePeriod $period)` | Абсолютный период date1/date2 |
-| `request(array $params)` | Произвольный запрос к API |
+| `totalVisits` / `totalPageViews` / `uniqueVisitors` / `bounceRate` | KPI |
+| `topPages` / `trafficSources` / `searchPhrases` / `geoCountries` / `browsers` | таблицы |
+| `visitsByDay` | ряд для графика |
+| `forPeriod(DatePeriod)` | абсолютный период |
+| `request(array)` | произвольный Metrika API |
 
-Также доступны `WebmasterService`, `YandexAccountService`, `AnalyticsExportService`.
+Также: `WebmasterService`, `YandexAccountService`, `AnalyticsExportService`, `ConnectionProbe`.
 
 ---
 
 ## Расширение
 
-### Вкладка из отдельного пакета (Google Analytics и др.)
+### Вкладка из отдельного пакета (рекомендуется для GA)
 
-Реестр `AnalyticsTabRegistry` позволяет добавить вкладку **без** subclass `MetrikaDashboardPage` в host-приложении.
-
-1. Реализуйте контракт `AnalyticsDashboardTab` (id, label, icon, `enabled()`, `usesPeriod()`, `requiresYandexConnection()`, `render()`, опционально `exportCsvUrl()`).
-2. В `boot()` своего Service Provider зарегистрируйте вкладку (рекомендуется для GA и любых внешних источников — period/CSV в шапке и независимость от OAuth Яндекса):
+Контракт `AnalyticsDashboardTab` + регистрация в `AnalyticsTabRegistry` — **без** subclass страницы в host-app.
 
 ```php
 use Tikhomirov\MoonshineYandexMetrika\Contracts\AnalyticsDashboardTab;
@@ -253,96 +209,48 @@ use Tikhomirov\MoonshineYandexMetrika\Support\DatePeriod;
 
 final class GoogleAnalyticsTab implements AnalyticsDashboardTab
 {
-    public function id(): string
-    {
-        return 'google_analytics';
-    }
-
-    public function label(): string
-    {
-        return 'Google Analytics';
-    }
-
-    public function icon(): string
-    {
-        return 'chart-pie';
-    }
-
-    public function enabled(): bool
-    {
-        return config('my-ga.enabled', false);
-    }
-
-    /**
-     * true — общий фильтр периода в шапке дашборда (как у вкладки «Метрика»).
-     */
-    public function usesPeriod(): bool
-    {
-        return true;
-    }
-
-    /**
-     * false — вкладка доступна даже если ConnectionProbe (OAuth Метрики) не прошёл.
-     */
-    public function requiresYandexConnection(): bool
-    {
-        return false;
-    }
+    public function id(): string { return 'google_analytics'; }
+    public function label(): string { return 'Google Analytics'; }
+    public function icon(): string { return 'chart-pie'; }
+    public function enabled(): bool { return (bool) config('my-ga.enabled'); }
+    public function usesPeriod(): bool { return true; }
+    /** false — вкладка жива даже если OAuth Яндекса упал */
+    public function requiresYandexConnection(): bool { return false; }
 
     public function render(DatePeriod $period, array $widgets, int $maxResults): array
     {
-        return [
-            // MoonShine-компоненты: Box::make(), Alert::make(), FlexibleRender::make(), …
-        ];
+        return [/* MoonShine components */];
     }
 
     public function exportCsvUrl(DatePeriod $period): ?string
     {
-        return null; // или route('my-ga.export', $period->toQuery())
+        return null;
     }
 }
 
-// App\Providers\MyGoogleAnalyticsServiceProvider::boot()
+// ServiceProvider::boot()
 app(AnalyticsTabRegistry::class)->register(new GoogleAnalyticsTab());
 ```
 
-Встроенные вкладки «Метрика» и «Вебмастер» тоже регистрируются через реестр при загрузке пакета. Сторонняя вкладка открывается query-параметром `?tab=google_analytics` (навигация появляется автоматически).
+Открытие: `?tab=google_analytics`. `ConnectionProbe` проверяет только вкладки с `requiresYandexConnection(): true`.
 
-`ConnectionProbe` проверяет только вкладки с `requiresYandexConnection(): true` — при ошибке OAuth навигация и сторонние вкладки остаются, предупреждение показывается в контенте яндекс-вкладок.
-
-### Своя страница дашборда (наследование)
-
-Для точечных правок по-прежнему можно наследовать страницу:
+### Наследование страницы (BC / точечные правки)
 
 ```php
-use Tikhomirov\MoonshineYandexMetrika\Pages\MetrikaDashboardPage;
-use Tikhomirov\MoonshineYandexMetrika\Support\DatePeriod;
-
 class MyMetrikaPage extends MetrikaDashboardPage
 {
-    protected function extraComponents(DatePeriod $period): array
-    {
-        return [
-            Box::make('Мой виджет', [...]),
-        ];
-    }
+    protected function extraComponents(DatePeriod $period): array { /* … */ }
 
-    /**
-     * BC: доп. вкладки без реестра (контент — через buildCustomTabContent()).
-     * Опционально uses_period, export_csv_url, export_csv_label, requires_yandex.
-     */
     protected function additionalAnalyticsTabs(): array
     {
-        return [
-            [
-                'id' => 'legacy_tab',
-                'label' => 'Legacy',
-                'icon' => 'square-2-stack',
-                'enabled' => true,
-                'uses_period' => true,
-                'requires_yandex' => false,
-            ],
-        ];
+        return [[
+            'id' => 'legacy_tab',
+            'label' => 'Legacy',
+            'icon' => 'square-2-stack',
+            'enabled' => true,
+            'uses_period' => true,
+            'requires_yandex' => false,
+        ]];
     }
 
     protected function buildCustomTabContent(
@@ -351,44 +259,38 @@ class MyMetrikaPage extends MetrikaDashboardPage
         array $widgets,
         int $maxRes,
     ): array {
-        if ($tab === 'legacy_tab') {
-            return [/* … */];
-        }
-
-        return parent::buildCustomTabContent($tab, $period, $widgets, $maxRes);
+        return $tab === 'legacy_tab'
+            ? [/* … */]
+            : parent::buildCustomTabContent($tab, $period, $widgets, $maxRes);
     }
 }
 ```
 
-Хуки `beforeComponents()`, `extraComponents()`, `buildCustomTabContent()` и `renderPeriodControlsHtml()` сохранены для обратной совместимости.
-
-
-### Публикация шаблонов
+Хуки: `beforeComponents()`, `extraComponents()`, `buildCustomTabContent()`, `renderPeriodControlsHtml()`.
 
 ```bash
 php artisan vendor:publish --tag=moonshine-yandex-metrika-views
-```
-
-Затем редактируй файлы в `resources/views/vendor/moonshine-yandex-metrika/`.
-
----
-
-## Локализация
-
-Поставляется с переводами на **русский** и **английский**. Для публикации:
-
-```bash
 php artisan vendor:publish --tag=moonshine-yandex-metrika-lang
 ```
 
 ---
 
-## Кэширование
+## Для AI-агентов
 
-```env
-YANDEX_METRIKA_CACHE_TTL=3600      # секунд, 0 = без кэша
-YANDEX_METRIKA_CACHE_STORE=redis   # опционально: конкретный драйвер
-```
+Skill поставляется **вместе с Composer-пакетом** (и в git-клоне):
+
+[`skills/moonshine-yandex-metrika/SKILL.md`](skills/moonshine-yandex-metrika/SKILL.md)
+
+Путь после установки: `vendor/tikhomirov/moonshine-yandex-metrika/skills/moonshine-yandex-metrika/SKILL.md`.  
+Используйте его, чтобы настроить дашборд, env, меню MoonShine, виджеты, вкладки и экспорт без чтения всего исходника.
+
+Чеклист релиза мейнтейнера: [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md).
+
+---
+
+## Локализация
+
+Поставляется **ru** и **en**. Publish: `--tag=moonshine-yandex-metrika-lang`.
 
 ---
 
