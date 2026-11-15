@@ -6,7 +6,6 @@ namespace Tikhomirov\MoonshineYandexMetrika\Pages;
 
 use MoonShine\Contracts\UI\ComponentContract;
 use MoonShine\Laravel\Pages\Page;
-use MoonShine\Support\Enums\Color;
 use MoonShine\UI\Components\Alert;
 use MoonShine\UI\Components\FlexibleRender;
 use MoonShine\UI\Components\Layout\Box;
@@ -14,17 +13,21 @@ use MoonShine\UI\Components\Layout\Column;
 use MoonShine\UI\Components\Layout\Div;
 use MoonShine\UI\Components\Layout\Divider;
 use MoonShine\UI\Components\Layout\Grid;
-use MoonShine\UI\Components\Metrics\Wrapped\ValueMetric;
 use MoonShine\UI\Components\Table\TableBuilder;
 use MoonShine\UI\Fields\Number;
 use MoonShine\UI\Fields\Text;
+use Tikhomirov\MoonshineYandexMetrika\Contracts\AnalyticsDashboardTab;
+use Tikhomirov\MoonshineYandexMetrika\Contracts\MetrikaDashboardTabHost;
 use Tikhomirov\MoonshineYandexMetrika\Services\ConnectionProbe;
+use Tikhomirov\MoonshineYandexMetrika\Services\ConnectionProbeResult;
 use Tikhomirov\MoonshineYandexMetrika\Services\MetrikaService;
 use Tikhomirov\MoonshineYandexMetrika\Services\WebmasterService;
 use Tikhomirov\MoonshineYandexMetrika\Services\YandexAccountService;
+use Tikhomirov\MoonshineYandexMetrika\Support\AnalyticsTabAttributes;
+use Tikhomirov\MoonshineYandexMetrika\Support\AnalyticsTabRegistry;
 use Tikhomirov\MoonshineYandexMetrika\Support\DatePeriod;
 
-class MetrikaDashboardPage extends Page
+class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
 {
     public const TAB_METRIKA = 'metrika';
 
@@ -62,56 +65,141 @@ class MetrikaDashboardPage extends Page
      */
     protected function components(): iterable
     {
-        $probe = app(ConnectionProbe::class)->check();
+        app()->instance(MetrikaDashboardTabHost::class, $this);
 
-        if (! $probe->isOk()) {
+        try {
+            $probe = app(ConnectionProbe::class)->check();
+            $period = $this->resolvePeriod();
+            $tab = $this->resolveTab();
+            $widgets = config('moonshine-yandex-metrika.widgets', []);
+            $maxRes = (int) config('moonshine-yandex-metrika.max_results', 10);
+
+            // MoonShine рендерит components() без .space-elements — соседние Alert/Box/FlexibleRender
+            // «липнут». Оборачиваем контент вкладки в Div.space-elements (см. common.css).
             return [
-                Alert::make('exclamation-triangle', 'warning')
-                    ->content($probe->message),
-                ...$this->extraComponents(DatePeriod::today()),
+                ...$this->beforeComponents($period),
+                $this->buildToolbar($period, $tab, $probe),
+                Div::make($this->buildTabContent($tab, $period, $widgets, $maxRes, $probe))
+                    ->class('space-elements'),
+                ...$this->extraComponents($period),
             ];
+        } finally {
+            app()->forgetInstance(MetrikaDashboardTabHost::class);
         }
-
-        $period = $this->resolvePeriod();
-        $tab = $this->resolveTab();
-        $widgets = config('moonshine-yandex-metrika.widgets', []);
-        $maxRes = (int) config('moonshine-yandex-metrika.max_results', 10);
-
-        // MoonShine рендерит components() без .space-elements — соседние Alert/Box/FlexibleRender
-        // «липнут». Оборачиваем контент вкладки в Div.space-elements (см. common.css).
-        return [
-            ...$this->beforeComponents($period),
-            $this->buildToolbar($period, $tab),
-            Div::make($this->buildTabContent($tab, $period, $widgets, $maxRes))
-                ->class('space-elements'),
-            ...$this->extraComponents($period),
-        ];
     }
 
     /**
-     * Расширяемый список вкладок дашборда (Метрика, Вебмастер, …).
+     * Список вкладок: {@see AnalyticsTabRegistry} + {@see additionalAnalyticsTabs()}.
      *
      * @return list<array{id: string, label: string, icon: string, enabled: bool}>
      */
     protected function analyticsTabs(): array
     {
-        $widgets = config('moonshine-yandex-metrika.widgets', []);
+        $tabs = [];
 
-        return [
-            [
-                'id' => self::TAB_METRIKA,
-                'label' => (string) __('moonshine-yandex-metrika::metrics.tab_metrika'),
-                'icon' => 'chart-bar',
-                'enabled' => true,
-            ],
-            [
-                'id' => self::TAB_WEBMASTER,
-                'label' => (string) __('moonshine-yandex-metrika::metrics.tab_webmaster'),
-                'icon' => 'magnifying-glass',
-                'enabled' => ($widgets['webmaster_summary'] ?? true)
-                    || ($widgets['webmaster_queries'] ?? true),
-            ],
-        ];
+        foreach (app(AnalyticsTabRegistry::class)->all() as $registered) {
+            $tabs[] = [
+                'id' => $registered->id(),
+                'label' => $registered->label(),
+                'icon' => $registered->icon(),
+                'enabled' => $registered->enabled(),
+            ];
+        }
+
+        return [...$tabs, ...$this->additionalAnalyticsTabs()];
+    }
+
+    /**
+     * Дополнительные вкладки в наследнике (BC: раньше переопределяли analyticsTabs() целиком).
+     *
+     * Для period/CSV в шапке предпочтительно {@see AnalyticsTabRegistry}; здесь — опциональные ключи
+     * uses_period, requires_yandex, export_csv_url, export_csv_label.
+     *
+     * @return list<array{
+     *     id: string,
+     *     label: string,
+     *     icon: string,
+     *     enabled: bool,
+     *     uses_period?: bool,
+     *     requires_yandex?: bool,
+     *     export_csv_url?: string|callable(DatePeriod): (?string),
+     *     export_csv_label?: string,
+     * }>
+     */
+    protected function additionalAnalyticsTabs(): array
+    {
+        return [];
+    }
+
+    /**
+     * @param  list<array{
+     *     id: string,
+     *     label: string,
+     *     icon: string,
+     *     enabled: bool,
+     *     uses_period?: bool,
+     *     requires_yandex?: bool,
+     *     export_csv_url?: string|callable(DatePeriod): (?string),
+     *     export_csv_label?: string,
+     * }>|null  $tabs
+     */
+    protected function findAdditionalAnalyticsTab(string $tabId, ?array $tabs = null): ?array
+    {
+        $tabs ??= $this->additionalAnalyticsTabs();
+
+        foreach ($tabs as $tab) {
+            if (($tab['id'] ?? '') === $tabId) {
+                return $tab;
+            }
+        }
+
+        return null;
+    }
+
+    protected function resolveTabAttributes(string $tabId, DatePeriod $period): AnalyticsTabAttributes
+    {
+        $registered = app(AnalyticsTabRegistry::class)->find($tabId);
+
+        if ($registered instanceof AnalyticsDashboardTab) {
+            $exportUrl = $registered->exportCsvUrl($period);
+            $exportLabel = match ($tabId) {
+                self::TAB_WEBMASTER => (string) __('moonshine-yandex-metrika::metrics.export_webmaster_csv'),
+                self::TAB_METRIKA => (string) __('moonshine-yandex-metrika::metrics.export_metrika_csv'),
+                default => $registered->label().' CSV',
+            };
+
+            return new AnalyticsTabAttributes(
+                usesPeriod: $registered->usesPeriod(),
+                requiresYandex: $registered->requiresYandexConnection(),
+                exportCsvUrl: $exportUrl !== '' ? $exportUrl : null,
+                exportCsvLabel: $exportUrl !== null && $exportUrl !== '' ? $exportLabel : null,
+            );
+        }
+
+        $legacy = $this->findAdditionalAnalyticsTab($tabId);
+
+        if ($legacy === null) {
+            return AnalyticsTabAttributes::none();
+        }
+
+        $exportUrl = null;
+
+        if (isset($legacy['export_csv_url'])) {
+            $raw = $legacy['export_csv_url'];
+            $exportUrl = is_callable($raw) ? $raw($period) : (string) $raw;
+            if ($exportUrl === '') {
+                $exportUrl = null;
+            }
+        }
+
+        $exportLabel = $legacy['export_csv_label'] ?? ($exportUrl !== null ? (string) ($legacy['label'] ?? '').' CSV' : null);
+
+        return new AnalyticsTabAttributes(
+            usesPeriod: (bool) ($legacy['uses_period'] ?? false),
+            requiresYandex: (bool) ($legacy['requires_yandex'] ?? false),
+            exportCsvUrl: $exportUrl,
+            exportCsvLabel: $exportLabel,
+        );
     }
 
     protected function resolveTab(): string
@@ -140,21 +228,55 @@ class MetrikaDashboardPage extends Page
         DatePeriod $period,
         array $widgets,
         int $maxRes,
+        ConnectionProbeResult $probe,
     ): array {
-        return match ($tab) {
-            self::TAB_WEBMASTER => $this->buildWebmasterSection(
-                $this->webmaster->forPeriod($period),
-                $period,
-                $widgets,
-                $maxRes,
-            ),
-            self::TAB_METRIKA => $this->buildMetrikaSection(
-                $this->metrika->forPeriod($period),
-                $widgets,
-                $maxRes,
-            ),
-            default => $this->buildCustomTabContent($tab, $period, $widgets, $maxRes),
-        };
+        $attributes = $this->resolveTabAttributes($tab, $period);
+
+        if ($attributes->requiresYandex && ! $probe->isOk()) {
+            return [
+                Alert::make('exclamation-triangle', 'warning')
+                    ->content($probe->message),
+            ];
+        }
+
+        $registered = app(AnalyticsTabRegistry::class)->find($tab);
+
+        if ($registered !== null && $registered->enabled()) {
+            return $registered->render($period, $widgets, $maxRes);
+        }
+
+        return $this->buildCustomTabContent($tab, $period, $widgets, $maxRes);
+    }
+
+    /**
+     * @param  array<string, bool>  $widgets
+     * @return list<ComponentContract>
+     *
+     * @internal Вызывается встроенной вкладкой Метрики из реестра.
+     */
+    public function renderMetrikaTab(DatePeriod $period, array $widgets, int $maxResults): array
+    {
+        return $this->buildMetrikaSection(
+            $this->metrika->forPeriod($period),
+            $widgets,
+            $maxResults,
+        );
+    }
+
+    /**
+     * @param  array<string, bool>  $widgets
+     * @return list<ComponentContract>
+     *
+     * @internal Вызывается встроенной вкладкой Вебмастера из реестра.
+     */
+    public function renderWebmasterTab(DatePeriod $period, array $widgets, int $maxResults): array
+    {
+        return $this->buildWebmasterSection(
+            $this->webmaster->forPeriod($period),
+            $period,
+            $widgets,
+            $maxResults,
+        );
     }
 
     /**
@@ -217,9 +339,15 @@ class MetrikaDashboardPage extends Page
         ], static fn (mixed $value): bool => $value !== null && $value !== '');
     }
 
-    protected function buildToolbar(DatePeriod $period, string $tab): FlexibleRender
-    {
-        $account = config('moonshine-yandex-metrika.widgets.account', true)
+    protected function buildToolbar(
+        DatePeriod $period,
+        string $tab,
+        ConnectionProbeResult $probe,
+    ): FlexibleRender {
+        $attributes = $this->resolveTabAttributes($tab, $period);
+        $yandexReady = $probe->isOk();
+
+        $account = $yandexReady && config('moonshine-yandex-metrika.widgets.account', true)
             ? $this->account->profile()
             : null;
 
@@ -238,17 +366,11 @@ class MetrikaDashboardPage extends Page
         }
 
         $exportHtml = '';
+        $exportUrl = $attributes->exportCsvUrl;
 
-        if (config('moonshine-yandex-metrika.widgets.export', true)) {
-            $query = $period->toQuery();
-
-            if ($tab === self::TAB_WEBMASTER) {
-                $exportUrl = e(route('moonshine-yandex-metrika.export.webmaster', $query));
-                $exportLabel = e(__('moonshine-yandex-metrika::metrics.export_webmaster_csv'));
-            } else {
-                $exportUrl = e(route('moonshine-yandex-metrika.export.metrika', $query));
-                $exportLabel = e(__('moonshine-yandex-metrika::metrics.export_metrika_csv'));
-            }
+        if ($exportUrl !== null && $exportUrl !== '' && (! $attributes->requiresYandex || $yandexReady)) {
+            $exportLabel = e($attributes->exportCsvLabel ?? 'CSV');
+            $exportUrl = e($exportUrl);
 
             $exportHtml = '<a href="'.$exportUrl.'" class="btn btn-secondary btn-sm ym-export" title="'
                 .$exportLabel.'">'
@@ -258,8 +380,7 @@ class MetrikaDashboardPage extends Page
         }
 
         $tabsHtml = $this->renderTabsHtml($period, $tab);
-        // Период влияет на всю Метрику; у Вебмастера — только на «Популярные запросы» (ниже).
-        $periodHtml = $tab === self::TAB_METRIKA
+        $periodHtml = $attributes->usesPeriod
             ? $this->renderPeriodControlsHtml($period, $tab)
             : '';
 
@@ -371,6 +492,56 @@ class MetrikaDashboardPage extends Page
   .ym-toolbar__period .ym-apply:hover { filter:brightness(1.08); }
   .ym-cabinet-links{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;}
   .ym-queries-period{display:flex;flex-direction:column;gap:.625rem;}
+  .ym-stats {
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:.75rem;
+  }
+  @media (max-width: 1100px) {
+    .ym-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  }
+  @media (max-width: 560px) {
+    .ym-stats { grid-template-columns:1fr; }
+  }
+  .ym-stat {
+    display:flex;
+    align-items:center;
+    gap:1rem;
+    min-height:5.25rem;
+    padding:.9rem 1.1rem;
+    border:1px solid rgba(15,23,42,.08);
+    border-radius:12px;
+    background:#fff;
+    box-shadow:0 1px 2px rgba(15,23,42,.03);
+  }
+  .ym-stat__icon {
+    display:grid;
+    place-items:center;
+    width:4.75rem;
+    height:4.75rem;
+    border-radius:14px;
+    flex:0 0 auto;
+  }
+  .ym-stat__icon svg { width:2.65rem; height:2.65rem; stroke-width:1.6; }
+  .ym-stat__body { min-width:0; }
+  .ym-stat__value {
+    font-size:1.5rem;
+    font-weight:800;
+    letter-spacing:-.03em;
+    line-height:1.15;
+    color:inherit;
+  }
+  .ym-stat__label {
+    margin-top:.25rem;
+    font-size:.8rem;
+    font-weight:600;
+    line-height:1.2;
+    opacity:.65;
+  }
+  .ym-stat--primary .ym-stat__icon { background:rgba(37,99,235,.12); color:#2563eb; }
+  .ym-stat--success .ym-stat__icon { background:rgba(22,163,74,.12); color:#16a34a; }
+  .ym-stat--info .ym-stat__icon { background:rgba(8,145,178,.12); color:#0891b2; }
+  .ym-stat--warning .ym-stat__icon { background:rgba(217,119,6,.14); color:#d97706; }
 </style>
 <div class="ym-toolbar">
   <div class="ym-toolbar__top">
@@ -453,12 +624,38 @@ HTML;
     }
 
     /**
-     * Простые outline-иконки для вкладок (без зависимости от Heroicons CDN).
+     * Компактные KPI-карточки: иконка слева, значение и подпись справа.
+     *
+     * @param  list<array{label: string, value: string, icon: string, tone?: string}>  $items
+     */
+    protected function buildCompactStats(array $items): FlexibleRender
+    {
+        $cards = '';
+
+        foreach ($items as $item) {
+            $tone = $item['tone'] ?? 'primary';
+            $cards .= '<div class="ym-stat ym-stat--'.e($tone).'">'
+                .'<div class="ym-stat__icon">'.$this->tabIconSvg($item['icon']).'</div>'
+                .'<div class="ym-stat__body">'
+                .'<div class="ym-stat__value">'.e($item['value']).'</div>'
+                .'<div class="ym-stat__label">'.e($item['label']).'</div>'
+                .'</div>'
+                .'</div>';
+        }
+
+        return FlexibleRender::make('<div class="ym-stats">'.$cards.'</div>');
+    }
+
+    /**
+     * Простые outline-иконки для вкладок и KPI (без зависимости от Heroicons CDN).
      */
     protected function tabIconSvg(string $name): string
     {
         $paths = [
             'chart-bar' => '<path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v6.75c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/>',
+            'document-chart-bar' => '<path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>',
+            'chart-pie' => '<path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z"/>',
+            'presentation-chart-line' => '<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5M9 11.25l3 3 3.75-4.5"/>',
             'magnifying-glass' => '<path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/>',
             'arrow-down-tray' => '<path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/>',
             'square-2-stack' => '<path stroke-linecap="round" stroke-linejoin="round" d="M16.5 8.25V6.75a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 3 6.75v9A2.25 2.25 0 0 0 5.25 18h1.5m1.5-3h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 6 5.25v9A2.25 2.25 0 0 0 8.25 16.5Z"/>',
@@ -484,39 +681,43 @@ HTML;
         $summaryMetrics = [];
 
         if ($widgets['visits'] ?? true) {
-            $summaryMetrics[] = ValueMetric::make(__('moonshine-yandex-metrika::metrics.visits'))
-                ->value(number_format($metrika->totalVisits(), 0, '.', ' '))
-                ->icon('chart-bar')
-                ->iconColor(Color::PRIMARY)
-                ->columnSpan(3);
+            $summaryMetrics[] = [
+                'label' => (string) __('moonshine-yandex-metrika::metrics.visits'),
+                'value' => number_format($metrika->totalVisits(), 0, '.', ' '),
+                'icon' => 'chart-bar',
+                'tone' => 'primary',
+            ];
         }
 
         if ($widgets['pageviews'] ?? true) {
-            $summaryMetrics[] = ValueMetric::make(__('moonshine-yandex-metrika::metrics.pageviews'))
-                ->value(number_format($metrika->totalPageViews(), 0, '.', ' '))
-                ->icon('document-chart-bar')
-                ->iconColor(Color::SUCCESS)
-                ->columnSpan(3);
+            $summaryMetrics[] = [
+                'label' => (string) __('moonshine-yandex-metrika::metrics.pageviews'),
+                'value' => number_format($metrika->totalPageViews(), 0, '.', ' '),
+                'icon' => 'document-chart-bar',
+                'tone' => 'success',
+            ];
         }
 
         if ($widgets['unique_visitors'] ?? true) {
-            $summaryMetrics[] = ValueMetric::make(__('moonshine-yandex-metrika::metrics.unique_visitors'))
-                ->value(number_format($metrika->uniqueVisitors(), 0, '.', ' '))
-                ->icon('chart-pie')
-                ->iconColor(Color::INFO)
-                ->columnSpan(3);
+            $summaryMetrics[] = [
+                'label' => (string) __('moonshine-yandex-metrika::metrics.unique_visitors'),
+                'value' => number_format($metrika->uniqueVisitors(), 0, '.', ' '),
+                'icon' => 'chart-pie',
+                'tone' => 'info',
+            ];
         }
 
         if ($widgets['bounce_rate'] ?? true) {
-            $summaryMetrics[] = ValueMetric::make(__('moonshine-yandex-metrika::metrics.bounce_rate'))
-                ->value($metrika->bounceRate().'%')
-                ->icon('presentation-chart-line')
-                ->iconColor(Color::WARNING)
-                ->columnSpan(3);
+            $summaryMetrics[] = [
+                'label' => (string) __('moonshine-yandex-metrika::metrics.bounce_rate'),
+                'value' => $metrika->bounceRate().'%',
+                'icon' => 'presentation-chart-line',
+                'tone' => 'warning',
+            ];
         }
 
         if ($summaryMetrics !== []) {
-            $components[] = Grid::make($summaryMetrics);
+            $components[] = $this->buildCompactStats($summaryMetrics);
             $components[] = Divider::make();
         }
 
@@ -626,29 +827,33 @@ HTML;
                 $components[] = Alert::make('exclamation-triangle', 'warning')
                     ->content(__('moonshine-yandex-metrika::metrics.webmaster_fetch_failed'));
             } else {
-                $components[] = Grid::make([
-                    ValueMetric::make(__('moonshine-yandex-metrika::metrics.in_search'))
-                        ->value(number_format($summary['searchable_pages_count'], 0, '.', ' '))
-                        ->icon('chart-bar')
-                        ->iconColor(Color::SUCCESS)
-                        ->columnSpan(3),
-                    ValueMetric::make(__('moonshine-yandex-metrika::metrics.excluded_pages'))
-                        ->value(number_format($summary['excluded_pages_count'], 0, '.', ' '))
-                        ->icon('chart-pie')
-                        ->iconColor(Color::INFO)
-                        ->columnSpan(3),
-                    ValueMetric::make(__('moonshine-yandex-metrika::metrics.site_problems'))
-                        ->value(number_format($summary['problems_total'], 0, '.', ' '))
-                        ->icon('presentation-chart-line')
-                        ->iconColor(Color::WARNING)
-                        ->columnSpan(3),
-                    ValueMetric::make(__('moonshine-yandex-metrika::metrics.external_links'))
-                        ->value($linksTotal === null
-                            ? __('moonshine-yandex-metrika::metrics.n_a')
-                            : number_format($linksTotal, 0, '.', ' '))
-                        ->icon('document-chart-bar')
-                        ->iconColor(Color::PRIMARY)
-                        ->columnSpan(3),
+                $components[] = $this->buildCompactStats([
+                    [
+                        'label' => (string) __('moonshine-yandex-metrika::metrics.in_search'),
+                        'value' => number_format($summary['searchable_pages_count'], 0, '.', ' '),
+                        'icon' => 'chart-bar',
+                        'tone' => 'success',
+                    ],
+                    [
+                        'label' => (string) __('moonshine-yandex-metrika::metrics.excluded_pages'),
+                        'value' => number_format($summary['excluded_pages_count'], 0, '.', ' '),
+                        'icon' => 'chart-pie',
+                        'tone' => 'info',
+                    ],
+                    [
+                        'label' => (string) __('moonshine-yandex-metrika::metrics.site_problems'),
+                        'value' => number_format($summary['problems_total'], 0, '.', ' '),
+                        'icon' => 'presentation-chart-line',
+                        'tone' => 'warning',
+                    ],
+                    [
+                        'label' => (string) __('moonshine-yandex-metrika::metrics.external_links'),
+                        'value' => $linksTotal === null
+                            ? (string) __('moonshine-yandex-metrika::metrics.n_a')
+                            : number_format($linksTotal, 0, '.', ' '),
+                        'icon' => 'document-chart-bar',
+                        'tone' => 'primary',
+                    ],
                 ]);
 
                 $components[] = Divider::make();

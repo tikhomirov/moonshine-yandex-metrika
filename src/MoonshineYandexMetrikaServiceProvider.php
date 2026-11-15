@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace Tikhomirov\MoonshineYandexMetrika;
 
 use Illuminate\Support\ServiceProvider;
+use Tikhomirov\MoonshineYandexMetrika\Pages\MetrikaDashboardPage;
 use Tikhomirov\MoonshineYandexMetrika\Services\AnalyticsExportService;
 use Tikhomirov\MoonshineYandexMetrika\Services\ConnectionProbe;
 use Tikhomirov\MoonshineYandexMetrika\Services\MetrikaService;
 use Tikhomirov\MoonshineYandexMetrika\Services\WebmasterService;
 use Tikhomirov\MoonshineYandexMetrika\Services\YandexAccountService;
+use Tikhomirov\MoonshineYandexMetrika\Support\AnalyticsTabRegistry;
+use Tikhomirov\MoonshineYandexMetrika\Tabs\MetrikaDashboardTab;
+use Tikhomirov\MoonshineYandexMetrika\Tabs\WebmasterDashboardTab;
 
 class MoonshineYandexMetrikaServiceProvider extends ServiceProvider
 {
@@ -25,6 +29,7 @@ class MoonshineYandexMetrikaServiceProvider extends ServiceProvider
         $this->app->singleton(YandexAccountService::class);
         $this->app->singleton(ConnectionProbe::class);
         $this->app->singleton(AnalyticsExportService::class);
+        $this->app->singleton(AnalyticsTabRegistry::class);
     }
 
     public function boot(): void
@@ -46,5 +51,15 @@ class MoonshineYandexMetrikaServiceProvider extends ServiceProvider
         ], 'moonshine-yandex-metrika-lang');
 
         $this->loadRoutesFrom(__DIR__.'/../routes/web.php');
+
+        $registry = $this->app->make(AnalyticsTabRegistry::class);
+
+        if (! $registry->has(MetrikaDashboardPage::TAB_METRIKA)) {
+            $registry->register(new MetrikaDashboardTab());
+        }
+
+        if (! $registry->has(MetrikaDashboardPage::TAB_WEBMASTER)) {
+            $registry->register(new WebmasterDashboardTab());
+        }
     }
 }

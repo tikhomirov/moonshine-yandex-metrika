@@ -239,10 +239,84 @@ class MyController extends Controller
 
 ## Расширение
 
-### Своя страница дашборда
+### Вкладка из отдельного пакета (Google Analytics и др.)
+
+Реестр `AnalyticsTabRegistry` позволяет добавить вкладку **без** subclass `MetrikaDashboardPage` в host-приложении.
+
+1. Реализуйте контракт `AnalyticsDashboardTab` (id, label, icon, `enabled()`, `usesPeriod()`, `requiresYandexConnection()`, `render()`, опционально `exportCsvUrl()`).
+2. В `boot()` своего Service Provider зарегистрируйте вкладку (рекомендуется для GA и любых внешних источников — period/CSV в шапке и независимость от OAuth Яндекса):
+
+```php
+use Tikhomirov\MoonshineYandexMetrika\Contracts\AnalyticsDashboardTab;
+use Tikhomirov\MoonshineYandexMetrika\Support\AnalyticsTabRegistry;
+use Tikhomirov\MoonshineYandexMetrika\Support\DatePeriod;
+
+final class GoogleAnalyticsTab implements AnalyticsDashboardTab
+{
+    public function id(): string
+    {
+        return 'google_analytics';
+    }
+
+    public function label(): string
+    {
+        return 'Google Analytics';
+    }
+
+    public function icon(): string
+    {
+        return 'chart-pie';
+    }
+
+    public function enabled(): bool
+    {
+        return config('my-ga.enabled', false);
+    }
+
+    /**
+     * true — общий фильтр периода в шапке дашборда (как у вкладки «Метрика»).
+     */
+    public function usesPeriod(): bool
+    {
+        return true;
+    }
+
+    /**
+     * false — вкладка доступна даже если ConnectionProbe (OAuth Метрики) не прошёл.
+     */
+    public function requiresYandexConnection(): bool
+    {
+        return false;
+    }
+
+    public function render(DatePeriod $period, array $widgets, int $maxResults): array
+    {
+        return [
+            // MoonShine-компоненты: Box::make(), Alert::make(), FlexibleRender::make(), …
+        ];
+    }
+
+    public function exportCsvUrl(DatePeriod $period): ?string
+    {
+        return null; // или route('my-ga.export', $period->toQuery())
+    }
+}
+
+// App\Providers\MyGoogleAnalyticsServiceProvider::boot()
+app(AnalyticsTabRegistry::class)->register(new GoogleAnalyticsTab());
+```
+
+Встроенные вкладки «Метрика» и «Вебмастер» тоже регистрируются через реестр при загрузке пакета. Сторонняя вкладка открывается query-параметром `?tab=google_analytics` (навигация появляется автоматически).
+
+`ConnectionProbe` проверяет только вкладки с `requiresYandexConnection(): true` — при ошибке OAuth навигация и сторонние вкладки остаются, предупреждение показывается в контенте яндекс-вкладок.
+
+### Своя страница дашборда (наследование)
+
+Для точечных правок по-прежнему можно наследовать страницу:
 
 ```php
 use Tikhomirov\MoonshineYandexMetrika\Pages\MetrikaDashboardPage;
+use Tikhomirov\MoonshineYandexMetrika\Support\DatePeriod;
 
 class MyMetrikaPage extends MetrikaDashboardPage
 {
@@ -252,8 +326,41 @@ class MyMetrikaPage extends MetrikaDashboardPage
             Box::make('Мой виджет', [...]),
         ];
     }
+
+    /**
+     * BC: доп. вкладки без реестра (контент — через buildCustomTabContent()).
+     * Опционально uses_period, export_csv_url, export_csv_label, requires_yandex.
+     */
+    protected function additionalAnalyticsTabs(): array
+    {
+        return [
+            [
+                'id' => 'legacy_tab',
+                'label' => 'Legacy',
+                'icon' => 'square-2-stack',
+                'enabled' => true,
+                'uses_period' => true,
+                'requires_yandex' => false,
+            ],
+        ];
+    }
+
+    protected function buildCustomTabContent(
+        string $tab,
+        DatePeriod $period,
+        array $widgets,
+        int $maxRes,
+    ): array {
+        if ($tab === 'legacy_tab') {
+            return [/* … */];
+        }
+
+        return parent::buildCustomTabContent($tab, $period, $widgets, $maxRes);
+    }
 }
 ```
+
+Хуки `beforeComponents()`, `extraComponents()`, `buildCustomTabContent()` и `renderPeriodControlsHtml()` сохранены для обратной совместимости.
 
 
 ### Публикация шаблонов

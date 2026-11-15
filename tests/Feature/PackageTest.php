@@ -8,13 +8,22 @@ use Tikhomirov\MoonshineYandexMetrika\Services\ConnectionProbe;
 use Tikhomirov\MoonshineYandexMetrika\Services\MetrikaService;
 use Tikhomirov\MoonshineYandexMetrika\Services\WebmasterService;
 use Tikhomirov\MoonshineYandexMetrika\Services\YandexAccountService;
+use Tikhomirov\MoonshineYandexMetrika\Support\AnalyticsTabRegistry;
 
 test('service provider registers package services', function () {
     expect(app()->bound(MetrikaService::class))->toBeTrue()
         ->and(app()->bound(WebmasterService::class))->toBeTrue()
         ->and(app()->bound(YandexAccountService::class))->toBeTrue()
         ->and(app()->bound(ConnectionProbe::class))->toBeTrue()
-        ->and(app()->bound(AnalyticsExportService::class))->toBeTrue();
+        ->and(app()->bound(AnalyticsExportService::class))->toBeTrue()
+        ->and(app()->bound(AnalyticsTabRegistry::class))->toBeTrue();
+});
+
+test('service provider registers built-in analytics tabs', function () {
+    $registry = app(AnalyticsTabRegistry::class);
+
+    expect($registry->has(MetrikaDashboardPage::TAB_METRIKA))->toBeTrue()
+        ->and($registry->has(MetrikaDashboardPage::TAB_WEBMASTER))->toBeTrue();
 });
 
 test('metrika dashboard page instantiates successfully', function () {

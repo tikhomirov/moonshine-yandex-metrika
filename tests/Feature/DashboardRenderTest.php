@@ -140,6 +140,8 @@ test('metrika dashboard renders all default widgets including visits chart', fun
         ->implode('');
 
     expect($html)->toContain('ym-tabs')
+        ->and($html)->toContain('ym-stats')
+        ->and($html)->toContain('ym-stat__value')
         ->and($html)->toContain('<canvas id="metrika_chart_')
         ->and($html)->toContain('2026-11-02')
         ->and($html)->toContain('42');
