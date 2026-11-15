@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- KPI cards, the period picker, and the visits chart follow MoonShine light and dark color tokens instead of hardcoded white surfaces
+
 ## [1.2.0] - 2026-11-15
 
 ### Added

@@ -406,7 +406,7 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
     gap:.75rem;
     padding:.25rem 0 1rem;
     margin:0 0 .25rem;
-    border-bottom:1px solid rgba(15,23,42,.12);
+    border-bottom:1px solid var(--ms-cm-base-stroke, rgba(15,23,42,.12));
   }
   .ym-tabs .ym-tab {
     display:inline-flex !important;
@@ -435,9 +435,10 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
     width:fit-content;
     max-width:100%;
     padding:6px;
-    border:1px solid rgba(15,23,42,.08);
+    border:1px solid var(--ms-cm-base-stroke, rgba(15,23,42,.08));
     border-radius:12px;
-    background:#fff;
+    background:var(--ms-cm-base-default, #fff);
+    color:var(--ms-cm-base-text, #0f172a);
     box-shadow:0 1px 2px rgba(15,23,42,.04);
   }
   @media (max-width: 420px) {
@@ -451,13 +452,17 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
     width:150px;
     height:36px;
     padding:0 10px;
-    border:1px solid rgba(15,23,42,.12);
+    border:1px solid var(--ms-cm-base-stroke, rgba(15,23,42,.12));
     border-radius:8px;
-    background:#fff;
+    background:var(--ms-cm-base-default, #fff);
     font: inherit;
     font-size:14px;
     line-height:36px;
-    color: inherit;
+    color:var(--ms-cm-base-text, #0f172a);
+    color-scheme:light;
+  }
+  :root.dark .ym-toolbar__period input[type="date"].ym-date {
+    color-scheme:dark;
   }
   .ym-toolbar__period input[type="date"].ym-date:focus {
     outline:2px solid rgba(37,99,235,.35);
@@ -481,8 +486,8 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
     height:36px;
     padding:0 14px;
     border-radius:8px;
-    background:#1e293b;
-    color:#fff;
+    background:var(--ms-cm-primary, #1e293b);
+    color:var(--ms-cm-primary-text, #fff);
     font: inherit;
     font-size:14px;
     font-weight:600;
@@ -509,9 +514,10 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
     gap:1rem;
     min-height:5.25rem;
     padding:.9rem 1.1rem;
-    border:1px solid rgba(15,23,42,.08);
+    border:1px solid var(--ms-cm-base-stroke, rgba(15,23,42,.08));
     border-radius:12px;
-    background:#fff;
+    background:var(--ms-cm-base-default, #fff);
+    color:var(--ms-cm-base-text, #0f172a);
     box-shadow:0 1px 2px rgba(15,23,42,.03);
   }
   .ym-stat__icon {
@@ -542,6 +548,10 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
   .ym-stat--success .ym-stat__icon { background:rgba(22,163,74,.12); color:#16a34a; }
   .ym-stat--info .ym-stat__icon { background:rgba(8,145,178,.12); color:#0891b2; }
   .ym-stat--warning .ym-stat__icon { background:rgba(217,119,6,.14); color:#d97706; }
+  :root.dark .ym-stat--primary .ym-stat__icon { background:rgba(37,99,235,.22); }
+  :root.dark .ym-stat--success .ym-stat__icon { background:rgba(22,163,74,.22); }
+  :root.dark .ym-stat--info .ym-stat__icon { background:rgba(8,145,178,.22); }
+  :root.dark .ym-stat--warning .ym-stat__icon { background:rgba(217,119,6,.24); }
 </style>
 <div class="ym-toolbar">
   <div class="ym-toolbar__top">
@@ -924,17 +934,20 @@ HTML;
             $chartData,
         ));
         $label = e(__('moonshine-yandex-metrika::metrics.visits'));
+        $theme = view('moonshine-yandex-metrika::components.chart-theme')->render();
 
         return FlexibleRender::make(<<<HTML
 <div x-ignore style="position: relative; height: 300px;">
   <canvas id="{$chartId}"></canvas>
 </div>
+{$theme}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   var el = document.getElementById('{$chartId}');
   if (!el || typeof Chart === 'undefined') { return; }
-  new Chart(el.getContext('2d'), {
+  var colors = ymMetrikaChartColors();
+  var chart = new Chart(el.getContext('2d'), {
     type: 'line',
     data: {
       labels: {$labels},
@@ -942,7 +955,7 @@ document.addEventListener('DOMContentLoaded', function () {
         label: '{$label}',
         data: {$values},
         borderColor: 'rgb(99, 102, 241)',
-        backgroundColor: 'rgba(99, 102, 241, 0.08)',
+        backgroundColor: colors.fill,
         borderWidth: 2,
         pointRadius: 3,
         fill: true,
@@ -953,12 +966,10 @@ document.addEventListener('DOMContentLoaded', function () {
       responsive: true,
       maintainAspectRatio: false,
       plugins: { legend: { display: false } },
-      scales: {
-        x: { grid: { display: false } },
-        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } }
-      }
+      scales: ymMetrikaChartScales(colors)
     }
   });
+  ymWatchMetrikaChartTheme(chart);
 });
 </script>
 HTML);
