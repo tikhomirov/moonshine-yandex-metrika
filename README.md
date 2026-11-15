@@ -4,7 +4,7 @@
 [![PHP Version](https://img.shields.io/packagist/php-v/tikhomirov/moonshine-yandex-metrika)](https://packagist.org/packages/tikhomirov/moonshine-yandex-metrika)
 [![License](https://img.shields.io/packagist/l/tikhomirov/moonshine-yandex-metrika)](LICENSE)
 
-Пакет добавляет в [MoonShine](https://moonshine-laravel.com) 4.x и 5.x отдельную страницу дашборда с ключевой статистикой из **Яндекс.Метрики**: визиты, просмотры, уник посетители, отказы, топ страниц, источники трафика, поисковые фразы, страны, браузеры.
+Пакет добавляет в [MoonShine](https://moonshine-laravel.com) 4.x и 5.x дашборд **Яндекс.Метрика + Вебмастер**: вкладки, посещаемость, фильтр периода, summary индексации/ошибок/внешних ссылок, топ поисковых запросов, блок аккаунта (email/аватар) и CSV-выгрузки.
 
 ![Dashboard preview](docs/preview.png)
 
@@ -35,6 +35,9 @@ php artisan vendor:publish --tag=moonshine-yandex-metrika-config
 ```env
 YANDEX_METRIKA_TOKEN=ваш_токен
 YANDEX_METRIKA_COUNTER_ID=ваш_номер_счётчика
+YANDEX_METRIKA_DEFAULT_PRESET=today
+# host_id формата https:example.com:443 (см. GET /v4/user/{id}/hosts)
+YANDEX_WEBMASTER_HOST_ID=https:example.com:443
 ```
 
 Регистрируем страницу в MoonShine провайдере:
@@ -84,9 +87,12 @@ public function menu(): array
 ### Шаг 3 — Права доступа
 
 1. Раздел **«Основные»** — ничего не отмечать (это права на данные пользователей, нам не нужны)
-2. Раздел **«Дополнительные»** — в поле «Название доступа» по очереди добавить:
-   - `metrika:read` — чтение статистики и параметров счётчиков *(обязательно)*
-   - `metrika:write` — управление счётчиками *(необязательно, если нужен только просмотр)*
+2. Раздел **«Дополнительные»** / права приложения — добавить:
+   - `metrika:read` — чтение статистики Метрики *(обязательно)*
+   - `webmaster:verify` — Вебмастер: summary, индексация, запросы *(для блока Вебмастера)*
+   - `webmaster:hostinfo` — внешние ссылки *(для счётчика ссылок)*
+   - `login:info`, `login:email`, `login:avatar` — email и аватар источника данных
+   - `metrika:write` — необязательно
 
 ---
 
@@ -143,36 +149,52 @@ return [
     'token'      => env('YANDEX_METRIKA_TOKEN'),
     'counter_id' => env('YANDEX_METRIKA_COUNTER_ID'),
 
-    // Период по умолчанию (дней)
-    'days' => 30,
+    // Legacy rolling-window для forDays(); дашборд использует default_preset
+    'days' => 0,
+    'default_preset' => 'today',
 
     // Кэш в секундах (0 = отключить)
     'cache_ttl' => 3600,
-
-    // Отдельное хранилище кэша (null = дефолтное)
     'cache_store' => null,
 
-    // Какие виджеты показывать
     'widgets' => [
-        'visits'          => true,   // Визиты
-        'pageviews'       => true,   // Просмотры
-        'unique_visitors' => true,   // Уникальные посетители
-        'bounce_rate'     => true,   // Отказы
-        'top_pages'       => true,   // Топ страниц
-        'traffic_sources' => true,   // Источники трафика
-        'search_phrases'  => true,   // Поисковые фразы
-        'geo'             => true,   // Страны
-        'browsers'        => true,   // Браузеры
+        'account' => true,
+        'period_filter' => true,
+        'export' => true,
+        'visits' => true,
+        'pageviews' => true,
+        'unique_visitors' => true,
+        'bounce_rate' => true,
+        'top_pages' => true,
+        'traffic_sources' => true,
+        'search_phrases' => true,
+        'geo' => true,
+        'browsers' => true,
+        'webmaster_summary' => true,
+        'webmaster_queries' => true,
     ],
 
-    // Макс. строк в таблицах
     'max_results' => 10,
-
-    // Заголовок и иконка пункта меню
     'page_title' => 'Яндекс.Метрика',
     'page_icon'  => 'presentation-chart-bar',
+
+    'webmaster' => [
+        'host_id' => env('YANDEX_WEBMASTER_HOST_ID'),
+        'user_id' => env('YANDEX_WEBMASTER_USER_ID'),
+    ],
 ];
 ```
+
+### Пресеты периода
+
+| Пресет | Как считается |
+|---|---|
+| Сегодня / Вчера | один день |
+| Неделя | сегодня − 7 … сегодня |
+| Месяц / Квартал / Полгода / Год | с начала текущего календарного периода до сегодня |
+| Произвольный | `date_from` + `date_to` |
+
+CSV: `/admin/yandex-analytics/export/metrika` и `/admin/yandex-analytics/export/webmaster` (под префиксом MoonShine, только для авторизованного админа).
 
 ---
 
@@ -208,7 +230,10 @@ class MyController extends Controller
 | `geoCountries(?int $days, int $maxResults)` | Визиты по странам |
 | `browsers(?int $days, int $maxResults)` | Визиты по браузерам |
 | `visitsByDay(?int $days)` | Визиты по дням (для графиков) |
+| `forPeriod(DatePeriod $period)` | Абсолютный период date1/date2 |
 | `request(array $params)` | Произвольный запрос к API |
+
+Также доступны `WebmasterService`, `YandexAccountService`, `AnalyticsExportService`.
 
 ---
 
@@ -221,16 +246,15 @@ use Tikhomirov\MoonshineYandexMetrika\Pages\MetrikaDashboardPage;
 
 class MyMetrikaPage extends MetrikaDashboardPage
 {
-    protected function components(): iterable
+    protected function extraComponents(DatePeriod $period): array
     {
-        $base = iterator_to_array(parent::components());
-
-        $base[] = Box::make('Мой виджет', [...]);
-
-        return $base;
+        return [
+            Box::make('Мой виджет', [...]),
+        ];
     }
 }
 ```
+
 
 ### Публикация шаблонов
 

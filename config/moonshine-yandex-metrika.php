@@ -2,9 +2,8 @@
 
 return [
     /*
-     * Yandex Metrika OAuth token.
+     * Yandex OAuth token (Metrika + Webmaster + login scopes).
      * Get it at: https://oauth.yandex.ru/
-     * Register app → select "Yandex.Metrika" → "Read statistics" → copy token.
      */
     'token' => env('YANDEX_METRIKA_TOKEN'),
 
@@ -14,9 +13,16 @@ return [
     'counter_id' => env('YANDEX_METRIKA_COUNTER_ID'),
 
     /*
-     * Default number of days for statistics (used in all widgets by default).
+     * Legacy rolling-window default for MetrikaService::forDays() BC.
+     * Dashboard default period is controlled by default_preset (today).
+     * Set to 0 to use "today" as service default.
      */
-    'days' => env('YANDEX_METRIKA_DAYS', 30),
+    'days' => env('YANDEX_METRIKA_DAYS', 0),
+
+    /*
+     * Default dashboard preset: today|yesterday|week|month|quarter|half_year|year
+     */
+    'default_preset' => env('YANDEX_METRIKA_DEFAULT_PRESET', 'today'),
 
     /*
      * Cache time in seconds. Set to 0 to disable caching.
@@ -31,22 +37,26 @@ return [
 
     /*
      * Widgets to display on the dashboard page.
-     * You can reorder, enable/disable any widget here.
      */
     'widgets' => [
-        'visits'          => true,   // Total visits
-        'pageviews'       => true,   // Total page views
-        'unique_visitors' => true,   // Unique visitors
-        'bounce_rate'     => true,   // Bounce rate (%)
-        'top_pages'       => true,   // Most viewed pages table
-        'traffic_sources' => true,   // Traffic sources table
-        'search_phrases'  => true,   // Search phrases table
-        'geo'             => true,   // Countries chart
-        'browsers'        => true,   // Browsers chart
+        'account' => true,
+        'period_filter' => true,
+        'export' => true,
+        'visits' => true,
+        'pageviews' => true,
+        'unique_visitors' => true,
+        'bounce_rate' => true,
+        'top_pages' => true,
+        'traffic_sources' => true,
+        'search_phrases' => true,
+        'geo' => true,
+        'browsers' => true,
+        'webmaster_summary' => true,
+        'webmaster_queries' => true,
     ],
 
     /*
-     * Default max results for table widgets (top_pages, traffic_sources, etc.).
+     * Default max results for table widgets.
      */
     'max_results' => 10,
 
@@ -61,7 +71,22 @@ return [
     'page_icon' => 'presentation-chart-bar',
 
     /*
-     * Yandex Metrika API base URL. Change only if Yandex changes it.
+     * Yandex Metrika API base URL.
      */
     'api_url' => 'https://api-metrika.yandex.net/stat/v1/data',
+
+    /*
+     * Yandex Login info endpoint (email + avatar).
+     */
+    'login_info_url' => 'https://login.yandex.ru/info',
+
+    /*
+     * Yandex Webmaster settings.
+     * host_id format: https:example.com:443
+     */
+    'webmaster' => [
+        'user_id' => env('YANDEX_WEBMASTER_USER_ID'),
+        'host_id' => env('YANDEX_WEBMASTER_HOST_ID'),
+        'api_url' => env('YANDEX_WEBMASTER_API_URL', 'https://api.webmaster.yandex.net/v4'),
+    ],
 ];
