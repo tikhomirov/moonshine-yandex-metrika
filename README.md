@@ -1,299 +1,124 @@
-# moonshine-yandex-metrika
+<p align="center">
+  <strong>Yandex Metrika and Webmaster analytics inside MoonShine</strong><br>
+  Traffic, search queries, and indexing status — in one dashboard.
+</p>
 
-[![Packagist Version](https://img.shields.io/packagist/v/tikhomirov/moonshine-yandex-metrika)](https://packagist.org/packages/tikhomirov/moonshine-yandex-metrika)
-[![PHP Version](https://img.shields.io/packagist/php-v/tikhomirov/moonshine-yandex-metrika)](https://packagist.org/packages/tikhomirov/moonshine-yandex-metrika)
-[![License](https://img.shields.io/packagist/l/tikhomirov/moonshine-yandex-metrika)](LICENSE)
+<p align="center">
+  <a href="README.ru.md">Русская версия</a>
+</p>
 
-Пакет добавляет в [MoonShine](https://moonshine-laravel.com) **4.x / 5.x** дашборд аналитики **Яндекс.Метрика + Вебмастер**.
+<h1 align="center">MoonShine Yandex Metrika</h1>
 
-![Dashboard preview](docs/preview.png)
+<p align="center">
+  <a href="https://packagist.org/packages/tikhomirov/moonshine-yandex-metrika"><img src="https://img.shields.io/packagist/v/tikhomirov/moonshine-yandex-metrika?style=for-the-badge" alt="Packagist version"></a>
+  <a href="https://packagist.org/packages/tikhomirov/moonshine-yandex-metrika"><img src="https://img.shields.io/packagist/dt/tikhomirov/moonshine-yandex-metrika?style=for-the-badge" alt="Downloads"></a>
+  <img src="https://img.shields.io/badge/PHP-8.2%2B-777BB4?style=for-the-badge&logo=php&logoColor=white" alt="PHP 8.2+">
+  <img src="https://img.shields.io/badge/MoonShine-4%20%7C%205-6C4AB6?style=for-the-badge" alt="MoonShine 4 and 5">
+  <a href="LICENSE"><img src="https://img.shields.io/packagist/l/tikhomirov/moonshine-yandex-metrika?style=for-the-badge" alt="MIT license"></a>
+</p>
 
-## Возможности
+<p align="center">
+  <img src="https://raw.githubusercontent.com/tikhomirov/moonshine-yandex-metrika/main/art/dashboard-preview.jpg" alt="MoonShine dashboard with Yandex Metrika and Webmaster tabs, period filters, KPI cards, and a visits chart" width="100%">
+</p>
 
-- Вкладки **Метрика** и **Вебмастер** (реестр `AnalyticsTabRegistry` — можно добавить GA и др.)
-- Компактные KPI, график визитов, топ страниц / источники / фразы / гео / браузеры
-- Фильтр периода (пресеты + произвольный диапазон); на Вебмастере период влияет на **запросы**
-- Summary Вебмастера: индексация, ошибки, внешние ссылки
-- Блок аккаунта Яндекса (email / аватар)
-- CSV-экспорт Метрики и запросов Вебмастера (только для авторизованного админа MoonShine)
-- Кэш API, RU/EN локализация, точки расширения без форка пакета
+## Features
 
-> Packagist-дистрибутив: runtime (`src/`, `config/`, `resources/`, `routes/`), `composer.json`, `LICENSE`, `README.md`, `CHANGELOG.md` и **`skills/`** (playbook для AI-агентов). OAuth-скриншоты, тесты и CI остаются только в [репозитории на GitHub](https://github.com/tikhomirov/moonshine-yandex-metrika).
+- **Yandex Metrika:** visits, page views, unique visitors, bounce rate, daily chart, and top pages.
+- **Yandex Webmaster:** indexing summary, site issues, external links, and popular search queries.
+- **Flexible periods:** presets and custom date ranges.
+- **CSV exports** for Metrika statistics and Webmaster queries.
+- Yandex account information and API response caching.
+- An extensible tab registry for adding third-party analytics without forking the package.
+- Russian and English UI translations.
 
----
+## Requirements
 
-## Требования
-
-| | |
+| Component | Version |
 |---|---|
-| PHP | 8.2+ (для MoonShine 5 — 8.4+) |
-| Laravel | 11 / 12 / 13 |
-| MoonShine | 4.x или 5.x |
+| PHP | 8.2+ (8.4+ for MoonShine 5) |
+| Laravel | 11, 12, or 13 |
+| MoonShine | 4.x or 5.x |
 
----
-
-## Установка
+## Installation
 
 ```bash
 composer require tikhomirov/moonshine-yandex-metrika
 php artisan vendor:publish --tag=moonshine-yandex-metrika-config
 ```
 
-`.env`:
+Register the page in your MoonShine menu and add it to the custom pages for your layout/provider:
 
-```env
-YANDEX_METRIKA_TOKEN=ваш_oauth_токен
-YANDEX_METRIKA_COUNTER_ID=ваш_номер_счётчика
+```php
+use Tikhomirov\MoonshineYandexMetrika\Pages\MetrikaDashboardPage;
+
+// MoonShine 4
+MenuItem::make('Yandex Metrika', MetrikaDashboardPage::class)
+    ->icon('presentation-chart-bar');
+
+// MoonShine 5
+MenuItem::make(MetrikaDashboardPage::class, 'Yandex Metrika');
+```
+
+## Yandex setup
+
+Create an application at [Yandex OAuth](https://oauth.yandex.ru/), set the redirect URI to `https://oauth.yandex.ru/verification_code`, and grant the scopes you need:
+
+| Scope | Purpose |
+|---|---|
+| `metrika:read` | Metrika statistics |
+| `webmaster:verify` | Webmaster indexing and search queries |
+| `webmaster:hostinfo` | Host details and external links |
+| `login:info`, `login:email`, `login:avatar` | Yandex account email and avatar |
+
+Add your settings to `.env`:
+
+```dotenv
+YANDEX_METRIKA_TOKEN=your_oauth_token
+YANDEX_METRIKA_COUNTER_ID=your_counter_id
 YANDEX_METRIKA_DEFAULT_PRESET=today
-# host_id формата https:example.com:443 (см. Webmaster API hosts)
 YANDEX_WEBMASTER_HOST_ID=https:example.com:443
 ```
 
-Регистрация страницы в меню MoonShine:
+`YANDEX_WEBMASTER_HOST_ID` is required for Webmaster and must use the host format shown in Yandex Webmaster. Metrika keeps working without it.
 
-```php
-// MoonShine 4 — часто в MoonShineServiceProvider::menu()
-use Tikhomirov\MoonshineYandexMetrika\Pages\MetrikaDashboardPage;
+## Periods and exports
 
-MenuItem::make('Яндекс.Метрика', MetrikaDashboardPage::class)
-    ->icon('presentation-chart-bar');
+Available presets: today, yesterday, week, month, quarter, half year, and year, plus a custom date range. The Webmaster summary shows the site's current state; the selected period applies to search queries.
 
-// MoonShine 5 — часто в Layout:
-MenuItem::make(MetrikaDashboardPage::class, 'Яндекс.Метрика');
-```
-
-Страницу также нужно добавить в `pages()` / список ресурсов провайдера MoonShine (как любую custom page).
-
-Опционально — тонкий subclass в host-приложении:
-
-```php
-namespace App\MoonShine\Pages;
-
-use Tikhomirov\MoonshineYandexMetrika\Pages\MetrikaDashboardPage as PackagePage;
-
-final class MetrikaDashboardPage extends PackagePage {}
-```
-
----
-
-## Получение OAuth-токена
-
-### 1. Создать приложение
-
-1. [oauth.yandex.ru](https://oauth.yandex.ru/) → **«Зарегистрировать новое приложение»**
-2. Название, иконка (можно [`docs/icon.png`](docs/icon.png) из репозитория), почта
-
-### 2. Платформы
-
-- Отметить **«Веб-сервисы»**
-- Redirect URI: `https://oauth.yandex.ru/verification_code`
-
-### 3. Права
-
-| Scope | Зачем |
-|---|---|
-| `metrika:read` | статистика Метрики (**обязательно**) |
-| `webmaster:verify` | summary / индексация / запросы |
-| `webmaster:hostinfo` | внешние ссылки |
-| `login:info`, `login:email`, `login:avatar` | блок аккаунта |
-
-### 4. Токен
-
-Открыть (под нужным аккаунтом Яндекса):
-
-```
-https://oauth.yandex.ru/authorize?response_type=token&client_id=ВАШ_CLIENT_ID
-```
-
-После **«Разрешить»** скопировать `access_token` из URL в `YANDEX_METRIKA_TOKEN`.
-
-Номер счётчика — из URL Метрики (`?id=XXXXXXXX`) или **Настройки счётчика**.
-
-Скриншоты шагов: [`docs/oauth-step1.jpg`](docs/oauth-step1.jpg) … [`oauth-step3.jpg`](docs/oauth-step3.jpg) (только в git-клоне).
-
----
-
-## Конфигурация
-
-Файл `config/moonshine-yandex-metrika.php` (после publish):
-
-```php
-return [
-    'token' => env('YANDEX_METRIKA_TOKEN'),
-    'counter_id' => env('YANDEX_METRIKA_COUNTER_ID'),
-    'days' => 0, // legacy forDays(); дашборд использует default_preset
-    'default_preset' => 'today',
-    'cache_ttl' => 3600,
-    'cache_store' => null,
-    'widgets' => [
-        'account' => true,
-        'period_filter' => true,
-        'export' => true,
-        'visits' => true,
-        'pageviews' => true,
-        'unique_visitors' => true,
-        'bounce_rate' => true,
-        'top_pages' => true,
-        'traffic_sources' => true,
-        'search_phrases' => true,
-        'geo' => true,
-        'browsers' => true,
-        'webmaster_summary' => true,
-        'webmaster_queries' => true,
-    ],
-    'max_results' => 10,
-    'page_title' => 'Яндекс.Метрика',
-    'page_icon' => 'presentation-chart-bar',
-    'webmaster' => [
-        'host_id' => env('YANDEX_WEBMASTER_HOST_ID'),
-        'user_id' => env('YANDEX_WEBMASTER_USER_ID'),
-    ],
-];
-```
-
-### Пресеты периода
-
-| Пресет | Диапазон |
-|---|---|
-| Сегодня / Вчера | один день |
-| Неделя | сегодня − 7 … сегодня |
-| Месяц / Квартал / Полгода / Год | с начала календарного периода до сегодня |
-| Произвольный | `date_from` + `date_to` |
-
-CSV (под префиксом MoonShine, auth admin):
+CSV export routes are available to authenticated MoonShine administrators:
 
 - `/admin/yandex-analytics/export/metrika`
 - `/admin/yandex-analytics/export/webmaster`
 
-```env
-YANDEX_METRIKA_CACHE_TTL=3600
-YANDEX_METRIKA_CACHE_STORE=redis
-```
+## AI agent skill
 
----
+This package includes a ready-to-use **AI agent skill** for configuring, extending, and troubleshooting the dashboard. It is intentionally shipped in the Composer distribution at `vendor/tikhomirov/moonshine-yandex-metrika/skills/moonshine-yandex-metrika/SKILL.md`.
 
-## Сервисы
-
-```php
-use Tikhomirov\MoonshineYandexMetrika\Services\MetrikaService;
-
-public function index(MetrikaService $metrika)
-{
-    $visits = $metrika->totalVisits(days: 7);
-    $pages = $metrika->topPages(days: 7, maxResults: 5);
-}
-```
-
-| Метод | Описание |
-|---|---|
-| `totalVisits` / `totalPageViews` / `uniqueVisitors` / `bounceRate` | KPI |
-| `topPages` / `trafficSources` / `searchPhrases` / `geoCountries` / `browsers` | таблицы |
-| `visitsByDay` | ряд для графика |
-| `forPeriod(DatePeriod)` | абсолютный период |
-| `request(array)` | произвольный Metrika API |
-
-Также: `WebmasterService`, `YandexAccountService`, `AnalyticsExportService`, `ConnectionProbe`.
-
----
-
-## Расширение
-
-### Вкладка из отдельного пакета (рекомендуется для GA)
-
-Контракт `AnalyticsDashboardTab` + регистрация в `AnalyticsTabRegistry` — **без** subclass страницы в host-app.
-
-```php
-use Tikhomirov\MoonshineYandexMetrika\Contracts\AnalyticsDashboardTab;
-use Tikhomirov\MoonshineYandexMetrika\Support\AnalyticsTabRegistry;
-use Tikhomirov\MoonshineYandexMetrika\Support\DatePeriod;
-
-final class GoogleAnalyticsTab implements AnalyticsDashboardTab
-{
-    public function id(): string { return 'google_analytics'; }
-    public function label(): string { return 'Google Analytics'; }
-    public function icon(): string { return 'chart-pie'; }
-    public function enabled(): bool { return (bool) config('my-ga.enabled'); }
-    public function usesPeriod(): bool { return true; }
-    /** false — вкладка жива даже если OAuth Яндекса упал */
-    public function requiresYandexConnection(): bool { return false; }
-
-    public function render(DatePeriod $period, array $widgets, int $maxResults): array
-    {
-        return [/* MoonShine components */];
-    }
-
-    public function exportCsvUrl(DatePeriod $period): ?string
-    {
-        return null;
-    }
-}
-
-// ServiceProvider::boot()
-app(AnalyticsTabRegistry::class)->register(new GoogleAnalyticsTab());
-```
-
-Открытие: `?tab=google_analytics`. `ConnectionProbe` проверяет только вкладки с `requiresYandexConnection(): true`.
-
-### Наследование страницы (BC / точечные правки)
-
-```php
-class MyMetrikaPage extends MetrikaDashboardPage
-{
-    protected function extraComponents(DatePeriod $period): array { /* … */ }
-
-    protected function additionalAnalyticsTabs(): array
-    {
-        return [[
-            'id' => 'legacy_tab',
-            'label' => 'Legacy',
-            'icon' => 'square-2-stack',
-            'enabled' => true,
-            'uses_period' => true,
-            'requires_yandex' => false,
-        ]];
-    }
-
-    protected function buildCustomTabContent(
-        string $tab,
-        DatePeriod $period,
-        array $widgets,
-        int $maxRes,
-    ): array {
-        return $tab === 'legacy_tab'
-            ? [/* … */]
-            : parent::buildCustomTabContent($tab, $period, $widgets, $maxRes);
-    }
-}
-```
-
-Хуки: `beforeComponents()`, `extraComponents()`, `buildCustomTabContent()`, `renderPeriodControlsHtml()`.
+Install [`llm/skills`](https://github.com/roxblnfk/skills) in the host application to discover the skill from Composer dependencies and sync it into your agent's skills directory:
 
 ```bash
-php artisan vendor:publish --tag=moonshine-yandex-metrika-views
+composer require --dev llm/skills
+composer skills:init --quick
+composer skills:show
+```
+
+The skill package auto-discovers `SKILL.md` files in Composer dependencies by default. Keeping this package's `skills/` directory in its distribution makes the dashboard instructions available to coding agents in the consuming application.
+
+## Localization
+
+The dashboard ships with **English and Russian translations** and follows the Laravel application's locale. To publish the translation files for customization:
+
+```bash
 php artisan vendor:publish --tag=moonshine-yandex-metrika-lang
 ```
 
----
+## More information
 
-## Для AI-агентов
+- [Changelog](CHANGELOG.md)
+- [Production checklist](https://github.com/tikhomirov/moonshine-yandex-metrika/blob/main/docs/PRODUCTION_CHECKLIST.md)
+- [Dashboard skill](https://github.com/tikhomirov/moonshine-yandex-metrika/blob/main/skills/moonshine-yandex-metrika/SKILL.md)
+- [Report an issue](https://github.com/tikhomirov/moonshine-yandex-metrika/issues)
 
-Skill поставляется **вместе с Composer-пакетом** (и в git-клоне):
+## License
 
-[`skills/moonshine-yandex-metrika/SKILL.md`](skills/moonshine-yandex-metrika/SKILL.md)
-
-Путь после установки: `vendor/tikhomirov/moonshine-yandex-metrika/skills/moonshine-yandex-metrika/SKILL.md`.  
-Используйте его, чтобы настроить дашборд, env, меню MoonShine, виджеты, вкладки и экспорт без чтения всего исходника.
-
-Чеклист релиза мейнтейнера: [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md).
-
----
-
-## Локализация
-
-Поставляется **ru** и **en**. Publish: `--tag=moonshine-yandex-metrika-lang`.
-
----
-
-## Лицензия
-
-MIT — см. [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
