@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tikhomirov\MoonshineYandexMetrika\Components;
 
 use MoonShine\UI\Components\MoonShineComponent;
-use Illuminate\Contracts\View\View;
 
 /**
  * Lightweight Chart.js line chart component.
@@ -15,12 +14,17 @@ class LineChartComponent extends MoonShineComponent
 {
     protected string $view = 'moonshine-yandex-metrika::components.line-chart';
 
+    /**
+     * @var list<array{dimension: string, metrics: list<float|int>}>
+     */
     protected array $chartData = [];
 
     /**
      * Use the inherited MoonShine `make(...$arguments)`: `LineChartComponent::make($chartData)`.
      * A narrower `make(array $chartData)` override is incompatible with the parent
      * signature and causes a fatal error when the class is loaded.
+     *
+     * @param  list<array{dimension: string, metrics: list<float|int>}>  $chartData
      */
     final public function __construct(array $chartData = [])
     {
@@ -28,14 +32,20 @@ class LineChartComponent extends MoonShineComponent
         $this->chartData = $chartData;
     }
 
+    /**
+     * @return list<string>
+     */
     public function getLabels(): array
     {
         return array_column($this->chartData, 'dimension');
     }
 
+    /**
+     * @return list<float|int>
+     */
     public function getValues(): array
     {
-        return array_map(fn ($row) => $row['metrics'][0] ?? 0, $this->chartData);
+        return array_map(fn (array $row) => $row['metrics'][0] ?? 0, $this->chartData);
     }
 
     protected function viewData(): array
@@ -43,7 +53,7 @@ class LineChartComponent extends MoonShineComponent
         return [
             'labels' => json_encode($this->getLabels()),
             'values' => json_encode($this->getValues()),
-            'chartId' => 'metrika_chart_' . uniqid(),
+            'chartId' => 'metrika_chart_'.uniqid(),
         ];
     }
 }
