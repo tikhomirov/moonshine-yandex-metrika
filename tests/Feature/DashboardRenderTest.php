@@ -156,3 +156,15 @@ test('metrika dashboard renders all default widgets including visits chart', fun
         ->and($html)->toContain('2026-11-02')
         ->and($html)->toContain('42');
 });
+
+test('metrika dashboard wraps all page components in one space-elements container', function () {
+    $page = app(MetrikaDashboardPage::class);
+    $components = $page->getComponents();
+
+    expect($components)->toHaveCount(1);
+
+    $root = $components->first();
+
+    expect($root)->toBeInstanceOf(\MoonShine\UI\Components\Layout\Div::class)
+        ->and((string) $root->getAttribute('class'))->toContain('space-elements');
+});
