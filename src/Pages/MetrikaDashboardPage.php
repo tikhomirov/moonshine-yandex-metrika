@@ -10,7 +10,6 @@ use MoonShine\UI\Components\Alert;
 use MoonShine\UI\Components\FlexibleRender;
 use MoonShine\UI\Components\Layout\Box;
 use MoonShine\UI\Components\Layout\Column;
-use MoonShine\UI\Components\Layout\Div;
 use MoonShine\UI\Components\Layout\Divider;
 use MoonShine\UI\Components\Layout\Grid;
 use MoonShine\UI\Components\Table\TableBuilder;
@@ -26,9 +25,12 @@ use Tikhomirov\MoonshineYandexMetrika\Services\YandexAccountService;
 use Tikhomirov\MoonshineYandexMetrika\Support\AnalyticsTabAttributes;
 use Tikhomirov\MoonshineYandexMetrika\Support\AnalyticsTabRegistry;
 use Tikhomirov\MoonshineYandexMetrika\Support\DatePeriod;
+use Tikhomirov\MoonshineYandexMetrika\Support\WrapsPageComponentsInSpaceElements;
 
 class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
 {
+    use WrapsPageComponentsInSpaceElements;
+
     public const TAB_METRIKA = 'metrika';
 
     public const TAB_WEBMASTER = 'webmaster';
@@ -74,15 +76,14 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
             $widgets = config('moonshine-yandex-metrika.widgets', []);
             $maxRes = (int) config('moonshine-yandex-metrika.max_results', 10);
 
-            // MoonShine рендерит components() без .space-elements — соседние Alert/Box/FlexibleRender
-            // «липнут». Оборачиваем контент вкладки в Div.space-elements (см. common.css).
-            return [
+            // Корень content.blade.php не добавляет .space-elements (см. moonshine#2108).
+            // Оборачиваем весь components(), включая хуки и тулбар.
+            return $this->wrapInSpaceElements([
                 ...$this->beforeComponents($period),
                 $this->buildToolbar($period, $tab, $probe),
-                Div::make($this->buildTabContent($tab, $period, $widgets, $maxRes, $probe))
-                    ->class('space-elements'),
+                ...$this->buildTabContent($tab, $period, $widgets, $maxRes, $probe),
                 ...$this->extraComponents($period),
-            ];
+            ]);
         } finally {
             app()->forgetInstance(MetrikaDashboardTabHost::class);
         }
