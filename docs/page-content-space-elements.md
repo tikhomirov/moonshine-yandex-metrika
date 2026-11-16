@@ -15,4 +15,4 @@
 
 ## Коммиты
 
-- (заполнится после коммита)
+- 5b3aa2c — wrap dashboard components in one space-elements container
