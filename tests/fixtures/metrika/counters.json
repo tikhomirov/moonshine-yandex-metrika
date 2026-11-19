@@ -1,0 +1,9 @@
+{
+    "counters": [
+        {
+            "id": 12345678,
+            "name": "Demo",
+            "site2": {"site": "demo.example", "domain": "demo.example"}
+        }
+    ]
+}

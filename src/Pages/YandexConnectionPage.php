@@ -16,6 +16,7 @@ use MoonShine\UI\Fields\Text;
 use Tikhomirov\MoonshineYandexMetrika\Services\MetrikaService;
 use Tikhomirov\MoonshineYandexMetrika\Services\WebmasterService;
 use Tikhomirov\MoonshineYandexMetrika\Services\YandexAccountService;
+use Tikhomirov\MoonshineYandexMetrika\Support\PackageConfig;
 use Tikhomirov\MoonshineYandexMetrika\Support\WrapsPageComponentsInSpaceElements;
 use Tikhomirov\MoonshineYandexMetrika\Support\YandexOAuthApp;
 use Tikhomirov\MoonshineYandexMetrika\Support\YandexOAuthFlow;
@@ -36,14 +37,14 @@ class YandexConnectionPage extends Page
     public function getBreadcrumbs(): array
     {
         return [
-            $this->dashboardUrl() => (string) config('moonshine-yandex-metrika.page_title', 'Яндекс.Метрика'),
+            $this->dashboardUrl() => PackageConfig::string('moonshine-yandex-metrika.page_title', 'Яндекс.Метрика'),
             '#' => $this->getTitle(),
         ];
     }
 
     public function getTitle(): string
     {
-        return (string) __('moonshine-yandex-metrika::metrics.connection_title');
+        return $this->trans('moonshine-yandex-metrika::metrics.connection_title');
     }
 
     protected function dashboardUrl(): string
@@ -108,7 +109,7 @@ class YandexConnectionPage extends Page
             .'</style>'
             .'<a href="'.e($this->dashboardUrl()).'" class="btn btn-secondary btn-sm ym-back-link">← '
             .e(__('moonshine-yandex-metrika::metrics.connection_back', [
-                'title' => (string) config('moonshine-yandex-metrika.page_title', 'Яндекс.Метрика'),
+                'title' => PackageConfig::string('moonshine-yandex-metrika.page_title', 'Яндекс.Метрика'),
             ]))
             .'</a>',
         );
@@ -130,9 +131,14 @@ class YandexConnectionPage extends Page
                 .e(__('moonshine-yandex-metrika::metrics.connection_open_app')).' ↗</a>';
         }
 
+        $configuredScopes = config('moonshine-yandex-metrika.oauth_scopes', []);
+        /** @var list<string> $scopeList */
+        $scopeList = is_array($configuredScopes)
+            ? array_values(array_filter($configuredScopes, static fn (mixed $scope): bool => is_string($scope) && $scope !== ''))
+            : [];
         $scopes = implode(' ', array_map(
             static fn (string $scope): string => '<code>'.e($scope).'</code>',
-            (array) config('moonshine-yandex-metrika.oauth_scopes', []),
+            $scopeList,
         ));
 
         $kv = $this->kv([
@@ -161,7 +167,7 @@ class YandexConnectionPage extends Page
         return $this->step(1, 'connection_step_app', $flow->canStart(), false, [
             '<div class="ym-step__actions">'.$links.'</div>',
             $kv,
-            (string) $form->render(),
+            $this->renderToString($form),
         ]);
     }
 
@@ -201,11 +207,11 @@ class YandexConnectionPage extends Page
 
             if ($missing !== []) {
                 $app = $this->oauthApp($settings);
-                $parts[] = (string) Alert::make('exclamation-triangle', 'warning')->content(
-                    e(__('moonshine-yandex-metrika::metrics.connection_missing_scopes', ['scopes' => implode(', ', $missing)]))
+                $parts[] = $this->renderToString(Alert::make('exclamation-triangle', 'warning')->content(
+                    e($this->trans('moonshine-yandex-metrika::metrics.connection_missing_scopes', ['scopes' => implode(', ', $missing)]))
                     .' <a href="'.e($app->editUrl()).'" target="_blank" rel="noopener noreferrer" class="ym-notice-link">'
-                    .e(__('moonshine-yandex-metrika::metrics.oauth_open_app_add_scope', ['scope' => implode(', ', $missing)])).' ↗</a>',
-                )->render();
+                    .e($this->trans('moonshine-yandex-metrika::metrics.oauth_open_app_add_scope', ['scope' => implode(', ', $missing)])).' ↗</a>',
+                ));
             }
         }
 
@@ -219,7 +225,7 @@ class YandexConnectionPage extends Page
 
         $parts[] = '<details class="ym-step__manual"><summary>'
             .e(__('moonshine-yandex-metrika::metrics.connection_manual_token'))
-            .'</summary>'.$manual->render().'</details>';
+            .'</summary>'.$this->renderToString($manual).'</details>';
 
         $locked = ! $flow->canStart() && ! $hasToken;
 
@@ -274,7 +280,7 @@ class YandexConnectionPage extends Page
             $parts[] = $this->kv($status);
         }
 
-        $parts[] = (string) $form->render();
+        $parts[] = $this->renderToString($form);
 
         $done = $metrika->counterId() !== '' && $webmaster->hostId() !== '';
         // Без токена шаг неактивен, но значения из env его не блокируют.
@@ -430,11 +436,11 @@ class YandexConnectionPage extends Page
 
     private function failNotice(string $messageKey, string $url, string $linkKey): string
     {
-        return (string) Alert::make('information-circle', 'info')->content(
-            e(__('moonshine-yandex-metrika::metrics.'.$messageKey))
+        return $this->renderToString(Alert::make('information-circle', 'info')->content(
+            e($this->trans('moonshine-yandex-metrika::metrics.'.$messageKey))
             .' <a href="'.e($url).'" target="_blank" rel="noopener noreferrer" class="ym-notice-link">'
-            .e(__('moonshine-yandex-metrika::metrics.'.$linkKey)).' ↗</a>',
-        )->render();
+            .e($this->trans('moonshine-yandex-metrika::metrics.'.$linkKey)).' ↗</a>',
+        ));
     }
 
     /**
@@ -459,7 +465,8 @@ class YandexConnectionPage extends Page
         $html = '';
 
         foreach ($rows as [$label, $value, $badge]) {
-            $html .= '<tr><th>'.e((string) $label).'</th><td>'.$value.($badge !== '' ? ' '.$badge : '').'</td></tr>';
+            $labelText = is_string($label) ? $label : (is_scalar($label) ? (string) $label : '');
+            $html .= '<tr><th>'.e($labelText).'</th><td>'.$value.($badge !== '' ? ' '.$badge : '').'</td></tr>';
         }
 
         return '<div class="overflow-x-auto"><table class="ym-step__kv"><tbody>'.$html.'</tbody></table></div>';
@@ -481,10 +488,31 @@ class YandexConnectionPage extends Page
     private function sourceBadge(?string $source): string
     {
         return match ($source) {
-            YandexSettings::SOURCE_DB => '<span class="badge badge-success">'.e(__('moonshine-yandex-metrika::metrics.connection_source_db')).'</span>',
-            YandexSettings::SOURCE_ENV => '<span class="badge badge-info">'.e(__('moonshine-yandex-metrika::metrics.connection_source_env')).'</span>',
-            YandexSettings::SOURCE_AUTO => '<span class="badge badge-primary">'.e(__('moonshine-yandex-metrika::metrics.connection_source_auto')).'</span>',
+            YandexSettings::SOURCE_DB => '<span class="badge badge-success">'.e($this->trans('moonshine-yandex-metrika::metrics.connection_source_db')).'</span>',
+            YandexSettings::SOURCE_ENV => '<span class="badge badge-info">'.e($this->trans('moonshine-yandex-metrika::metrics.connection_source_env')).'</span>',
+            YandexSettings::SOURCE_AUTO => '<span class="badge badge-primary">'.e($this->trans('moonshine-yandex-metrika::metrics.connection_source_auto')).'</span>',
             default => '',
         };
+    }
+
+    /**
+     * @param  array<string, string|int|float>  $replace
+     */
+    private function trans(string $key, array $replace = []): string
+    {
+        $message = __($key, $replace);
+
+        return is_string($message) ? $message : $key;
+    }
+
+    private function renderToString(mixed $component): string
+    {
+        if (! is_object($component) || ! method_exists($component, 'render')) {
+            return '';
+        }
+
+        $html = $component->render();
+
+        return is_string($html) ? $html : (string) $html;
     }
 }

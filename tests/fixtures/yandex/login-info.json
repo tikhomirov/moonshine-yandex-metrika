@@ -1,0 +1,8 @@
+{
+    "id": "12345",
+    "login": "demo",
+    "default_email": "demo@example.com",
+    "default_avatar_id": "0/0-0",
+    "is_avatar_empty": false,
+    "client_id": "4760187d81bc4b7799476b42b5103713"
+}

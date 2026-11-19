@@ -63,6 +63,28 @@ test('custom dates from request override preset', function () {
         ->and($period->date2())->toBe('2026-01-10');
 });
 
+test('yesterday preset is a single previous day', function () {
+    $now = Carbon::parse('2026-11-15');
+    $period = DatePeriod::fromPreset(DatePeriod::PRESET_YESTERDAY, $now);
+
+    expect($period->date1())->toBe('2026-11-14')
+        ->and($period->date2())->toBe('2026-11-14');
+});
+
+test('unknown preset falls back to today via request', function () {
+    $period = DatePeriod::fromRequest('not-a-preset', null, null, Carbon::parse('2026-11-15'));
+
+    expect($period->preset)->toBe(DatePeriod::PRESET_TODAY);
+});
+
+test('custom period accepts carbon instances and half year starts in january', function () {
+    $now = Carbon::parse('2026-05-15');
+    $custom = DatePeriod::custom($now->copy()->subDays(2), $now);
+
+    expect($custom->date1())->toBe('2026-05-13')
+        ->and(DatePeriod::fromPreset(DatePeriod::PRESET_HALF_YEAR, $now)->date1())->toBe('2026-01-01');
+});
+
 test('request without dates defaults to today', function () {
     Carbon::setTestNow('2026-11-15');
 

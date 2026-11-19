@@ -6,6 +6,7 @@ namespace Tikhomirov\MoonshineYandexMetrika\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
+use Tikhomirov\MoonshineYandexMetrika\Support\PackageConfig;
 
 /**
  * Единственная строка с настройками подключения к Яндексу.
@@ -37,7 +38,7 @@ class YandexMetrikaSetting extends Model
 
     public function getTable(): string
     {
-        return (string) config('moonshine-yandex-metrika.settings_table', 'yandex_metrika_settings');
+        return PackageConfig::string('moonshine-yandex-metrika.settings_table', 'yandex_metrika_settings');
     }
 
     protected function casts(): array

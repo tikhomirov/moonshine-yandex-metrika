@@ -6,8 +6,10 @@ namespace Tikhomirov\MoonshineYandexMetrika\Services;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
+use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Support\Facades\Cache;
 use Tikhomirov\MoonshineYandexMetrika\Support\DatePeriod;
+use Tikhomirov\MoonshineYandexMetrika\Support\PackageConfig;
 use Tikhomirov\MoonshineYandexMetrika\Support\YandexSettings;
 
 /**
@@ -26,7 +28,7 @@ final class ConnectionProbe
      */
     public function fresh(): ConnectionProbeResult
     {
-        Cache::store(config('moonshine-yandex-metrika.cache_store'))->forget(self::CACHE_KEY);
+        $this->cache()->forget(self::CACHE_KEY);
 
         return $this->check();
     }
@@ -53,7 +55,7 @@ final class ConnectionProbe
             );
         }
 
-        $store = Cache::store(config('moonshine-yandex-metrika.cache_store'));
+        $store = $this->cache();
 
         /** @var ConnectionProbeResult|null $cached */
         $cached = $store->get(self::CACHE_KEY);
@@ -70,7 +72,7 @@ final class ConnectionProbe
 
     private function requestMetrika(string $token, string $counterId): ConnectionProbeResult
     {
-        $apiUrl = (string) config('moonshine-yandex-metrika.api_url', 'https://api-metrika.yandex.net/stat/v1/data');
+        $apiUrl = PackageConfig::string('moonshine-yandex-metrika.api_url', 'https://api-metrika.yandex.net/stat/v1/data');
         $period = DatePeriod::today();
 
         try {
@@ -95,7 +97,9 @@ final class ConnectionProbe
                 return ConnectionProbeResult::ok();
             }
 
+            // @codeCoverageIgnoreStart Guzzle по умолчанию бросает на 4xx/5xx (http_errors); ветка — при http_errors=false.
             return ConnectionProbeResult::failed('API Яндекс.Метрики вернул HTTP '.$response->getStatusCode().'.');
+            // @codeCoverageIgnoreEnd
         } catch (GuzzleException $e) {
             $status = method_exists($e, 'getResponse') && $e->getResponse()
                 ? $e->getResponse()->getStatusCode()
@@ -115,5 +119,12 @@ final class ConnectionProbe
             404 => 'Счётчик не найден (404).',
             default => 'API Яндекс.Метрики недоступен.',
         };
+    }
+
+    private function cache(): Repository
+    {
+        $storeName = PackageConfig::cacheStore();
+
+        return $storeName !== null ? Cache::store($storeName) : Cache::store();
     }
 }

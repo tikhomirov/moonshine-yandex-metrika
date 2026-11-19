@@ -6,8 +6,9 @@ use Illuminate\Support\Facades\Route;
 use MoonShine\Laravel\Http\Middleware\Authenticate;
 use Tikhomirov\MoonshineYandexMetrika\Http\Controllers\ConnectionController;
 use Tikhomirov\MoonshineYandexMetrika\Http\Controllers\ExportController;
+use Tikhomirov\MoonshineYandexMetrika\Support\PackageConfig;
 
-$prefix = trim((string) config('moonshine.prefix', 'admin'), '/');
+$prefix = trim(PackageConfig::string('moonshine.prefix', 'admin'), '/');
 
 Route::middleware(['moonshine', Authenticate::class])
     ->prefix($prefix)

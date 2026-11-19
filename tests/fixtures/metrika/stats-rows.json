@@ -1,0 +1,9 @@
+{
+    "totals": [100],
+    "data": [
+        {
+            "dimensions": [{"name": "/home"}],
+            "metrics": [55]
+        }
+    ]
+}

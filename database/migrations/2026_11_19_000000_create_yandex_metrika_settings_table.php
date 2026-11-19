@@ -5,12 +5,13 @@ declare(strict_types=1);
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Tikhomirov\MoonshineYandexMetrika\Support\PackageConfig;
 
 return new class extends Migration
 {
     public function up(): void
     {
-        $table = (string) config('moonshine-yandex-metrika.settings_table', 'yandex_metrika_settings');
+        $table = PackageConfig::string('moonshine-yandex-metrika.settings_table', 'yandex_metrika_settings');
 
         Schema::create($table, function (Blueprint $table): void {
             $table->id();
@@ -28,6 +29,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists((string) config('moonshine-yandex-metrika.settings_table', 'yandex_metrika_settings'));
+        Schema::dropIfExists(PackageConfig::string('moonshine-yandex-metrika.settings_table', 'yandex_metrika_settings'));
     }
 };

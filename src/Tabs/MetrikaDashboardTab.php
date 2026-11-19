@@ -9,6 +9,7 @@ use Tikhomirov\MoonshineYandexMetrika\Contracts\AnalyticsDashboardTab;
 use Tikhomirov\MoonshineYandexMetrika\Contracts\MetrikaDashboardTabHost;
 use Tikhomirov\MoonshineYandexMetrika\Pages\MetrikaDashboardPage;
 use Tikhomirov\MoonshineYandexMetrika\Support\DatePeriod;
+use Tikhomirov\MoonshineYandexMetrika\Support\PackageConfig;
 
 final class MetrikaDashboardTab implements AnalyticsDashboardTab
 {
@@ -57,7 +58,9 @@ final class MetrikaDashboardTab implements AnalyticsDashboardTab
 
     public function exportCsvUrl(DatePeriod $period): ?string
     {
-        if (! config('moonshine-yandex-metrika.widgets.export', true)) {
+        $widgets = PackageConfig::boolMap('moonshine-yandex-metrika.widgets');
+
+        if (! ($widgets['export'] ?? true)) {
             return null;
         }
 

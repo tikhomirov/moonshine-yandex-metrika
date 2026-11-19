@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tikhomirov\MoonshineYandexMetrika\Support;
 
 use Carbon\CarbonInterface;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
@@ -150,7 +151,7 @@ class YandexSettings
     public function tableExists(): bool
     {
         try {
-            return Schema::hasTable((string) config('moonshine-yandex-metrika.settings_table', 'yandex_metrika_settings'));
+            return Schema::hasTable(PackageConfig::string('moonshine-yandex-metrika.settings_table', 'yandex_metrika_settings'));
         } catch (Throwable) {
             return false;
         }
@@ -181,21 +182,33 @@ class YandexSettings
                 continue;
             }
 
-            $value = $values[$key] === null ? '' : mb_trim((string) $values[$key]);
+            $raw = $values[$key];
+            $value = match (true) {
+                $raw === null => '',
+                is_string($raw) => mb_trim($raw),
+                is_scalar($raw) => mb_trim((string) $raw),
+                default => '',
+            };
             $record->{$key} = $value === '' ? null : $value;
 
             $tokenChanged = $tokenChanged || $key === 'token';
         }
 
         if (array_key_exists('scopes', $values)) {
-            $record->scopes = is_array($values['scopes']) ? array_values($values['scopes']) : null;
+            $record->scopes = is_array($values['scopes'])
+                ? array_values(array_filter(array_map(
+                    static fn (mixed $scope): string => is_string($scope) ? $scope : (is_scalar($scope) ? (string) $scope : ''),
+                    $values['scopes'],
+                )))
+                : null;
         } elseif ($tokenChanged) {
             // Ручной токен: права неизвестны.
             $record->scopes = null;
         }
 
         if (array_key_exists('token_obtained_at', $values)) {
-            $record->token_obtained_at = $values['token_obtained_at'];
+            $obtained = $values['token_obtained_at'];
+            $record->token_obtained_at = $obtained instanceof CarbonInterface ? Carbon::parse($obtained) : null;
         } elseif ($tokenChanged) {
             $record->token_obtained_at = $record->token !== null ? now() : null;
         }
@@ -232,7 +245,7 @@ class YandexSettings
      */
     public static function formatDate(CarbonInterface $date): string
     {
-        $timezone = (string) config('app.timezone', 'UTC');
+        $timezone = PackageConfig::string('app.timezone', 'UTC');
 
         return $date->copy()->setTimezone($timezone)->format('d.m.Y H:i').' ('.$timezone.')';
     }
@@ -269,7 +282,9 @@ class YandexSettings
             $value = $this->record()?->{$key};
         } catch (Throwable) {
             // Например, сменился APP_KEY и секрет не расшифровать.
+            // @codeCoverageIgnoreStart — в sqlite/testbench DecryptException при битом шифре не всегда воспроизводим.
             return '';
+            // @codeCoverageIgnoreEnd
         }
 
         return $value === null ? '' : mb_trim((string) $value);
@@ -281,13 +296,13 @@ class YandexSettings
 
         return $configKey === null
             ? ''
-            : mb_trim((string) config('moonshine-yandex-metrika.'.$configKey));
+            : mb_trim(PackageConfig::string('moonshine-yandex-metrika.'.$configKey));
     }
 
     private function flush(): void
     {
-        $storeName = config('moonshine-yandex-metrika.cache_store');
-        $store = $storeName ? Cache::store($storeName) : Cache::store();
+        $storeName = PackageConfig::cacheStore();
+        $store = $storeName !== null ? Cache::store($storeName) : Cache::store();
 
         foreach (self::TOKEN_CACHE_KEYS as $key) {
             $store->forget($key);

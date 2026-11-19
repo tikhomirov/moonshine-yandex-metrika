@@ -9,6 +9,7 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Cache;
 use Tikhomirov\MoonshineYandexMetrika\Support\DatePeriod;
+use Tikhomirov\MoonshineYandexMetrika\Support\PackageConfig;
 use Tikhomirov\MoonshineYandexMetrika\Support\YandexSettings;
 
 class MetrikaService
@@ -41,11 +42,11 @@ class MetrikaService
     {
         $settings = app(YandexSettings::class);
         $this->token = $settings->token();
-        $this->managementUrl = rtrim((string) config('moonshine-yandex-metrika.management_api_url', 'https://api-metrika.yandex.net/management/v1'), '/');
-        $this->days = (int) config('moonshine-yandex-metrika.days', 0);
-        $this->cacheTtl = (int) config('moonshine-yandex-metrika.cache_ttl', 3600);
-        $this->cacheStore = config('moonshine-yandex-metrika.cache_store');
-        $this->apiUrl = (string) config('moonshine-yandex-metrika.api_url', 'https://api-metrika.yandex.net/stat/v1/data');
+        $this->managementUrl = rtrim(PackageConfig::string('moonshine-yandex-metrika.management_api_url', 'https://api-metrika.yandex.net/management/v1'), '/');
+        $this->days = PackageConfig::int('moonshine-yandex-metrika.days', 0);
+        $this->cacheTtl = PackageConfig::int('moonshine-yandex-metrika.cache_ttl', 3600);
+        $this->cacheStore = PackageConfig::cacheStore();
+        $this->apiUrl = PackageConfig::string('moonshine-yandex-metrika.api_url', 'https://api-metrika.yandex.net/stat/v1/data');
 
         $defaultPeriod = $this->days > 0
             ? new DatePeriod(
@@ -125,7 +126,7 @@ class MetrikaService
             'metrics' => 'ym:s:visits',
         ]);
 
-        return (int) ($data['totals'][0] ?? 0);
+        return $this->intMetricTotal($data, 0);
     }
 
     public function totalPageViews(?int $days = null): int
@@ -134,7 +135,7 @@ class MetrikaService
             'metrics' => 'ym:s:pageviews',
         ]);
 
-        return (int) ($data['totals'][0] ?? 0);
+        return $this->intMetricTotal($data, 0);
     }
 
     public function uniqueVisitors(?int $days = null): int
@@ -143,7 +144,7 @@ class MetrikaService
             'metrics' => 'ym:s:users',
         ]);
 
-        return (int) ($data['totals'][0] ?? 0);
+        return $this->intMetricTotal($data, 0);
     }
 
     public function bounceRate(?int $days = null): float
@@ -152,7 +153,7 @@ class MetrikaService
             'metrics' => 'ym:s:bounceRate',
         ]);
 
-        return round((float) ($data['totals'][0] ?? 0), 2);
+        return round($this->floatMetricTotal($data, 0), 2);
     }
 
     /**
@@ -343,6 +344,7 @@ class MetrikaService
             return null;
         }
 
+        /** @var array<string, mixed> $data */
         $counters = self::countersFromResponse($data);
         $store->put($cacheKey, $counters, self::COUNTERS_TTL);
 
@@ -364,7 +366,9 @@ class MetrikaService
 
             $sites = [];
 
-            foreach ([$counter['site2']['site'] ?? null, $counter['site2']['domain'] ?? null, $counter['site'] ?? null] as $site) {
+            $site2 = $counter['site2'] ?? null;
+            $site2Data = is_array($site2) ? $site2 : [];
+            foreach ([$site2Data['site'] ?? null, $site2Data['domain'] ?? null, $counter['site'] ?? null] as $site) {
                 if (is_string($site) && $site !== '' && ! in_array($site, $sites, true)) {
                     $sites[] = $site;
                 }
@@ -372,7 +376,7 @@ class MetrikaService
 
             $counters[] = [
                 'id' => (string) $counter['id'],
-                'name' => (string) ($counter['name'] ?? ''),
+                'name' => is_scalar($counter['name'] ?? null) ? (string) $counter['name'] : '',
                 'site' => $sites[0] ?? '',
                 'sites' => $sites,
             ];
@@ -444,7 +448,7 @@ class MetrikaService
         }
 
         $counters = $this->counters() ?? [];
-        $match = self::matchCounterByUrl($counters, (string) config('app.url'));
+        $match = self::matchCounterByUrl($counters, PackageConfig::string('app.url'));
 
         if ($match !== null) {
             return [$match, YandexSettings::SOURCE_AUTO];
@@ -464,22 +468,71 @@ class MetrikaService
     }
 
     /**
+     * @param  array<string, mixed>|null  $data
      * @return list<array{dimension: string, metrics: list<float|int>}>
      */
     protected function extractRows(?array $data): array
     {
-        if (empty($data['data'])) {
+        if ($data === null || ! isset($data['data']) || ! is_array($data['data']) || $data['data'] === []) {
             return [];
         }
 
-        return array_map(function (array $row) {
-            $dimensions = array_map(fn ($d) => $d['name'] ?? $d['id'] ?? '', $row['dimensions'] ?? []);
-            $metrics = $row['metrics'] ?? [];
+        $rows = [];
 
-            return [
+        foreach ($data['data'] as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $dimensions = array_map(
+                static function (mixed $d): string {
+                    if (! is_array($d)) {
+                        return '';
+                    }
+
+                    $name = $d['name'] ?? $d['id'] ?? '';
+
+                    return is_scalar($name) ? (string) $name : '';
+                },
+                is_array($row['dimensions'] ?? null) ? $row['dimensions'] : [],
+            );
+            /** @var list<float|int> $metrics */
+            $metrics = is_array($row['metrics'] ?? null) ? array_values($row['metrics']) : [];
+
+            $rows[] = [
                 'dimension' => implode(' / ', $dimensions),
                 'metrics' => $metrics,
             ];
-        }, $data['data']);
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $data
+     */
+    private function intMetricTotal(?array $data, int $index): int
+    {
+        if ($data === null || ! isset($data['totals']) || ! is_array($data['totals'])) {
+            return 0;
+        }
+
+        $value = $data['totals'][$index] ?? 0;
+
+        return is_numeric($value) ? (int) $value : 0;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $data
+     */
+    private function floatMetricTotal(?array $data, int $index): float
+    {
+        if ($data === null || ! isset($data['totals']) || ! is_array($data['totals'])) {
+            return 0.0;
+        }
+
+        $value = $data['totals'][$index] ?? 0;
+
+        return is_numeric($value) ? (float) $value : 0.0;
     }
 }
