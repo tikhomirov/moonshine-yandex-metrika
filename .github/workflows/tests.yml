@@ -82,4 +82,4 @@ jobs:
           extensions: dom, mbstring, sqlite, pcov
           coverage: pcov
       - run: composer update --prefer-dist --no-interaction --no-progress
-      - run: vendor/bin/pest -c phpunit.xml.dist --mutate --min-score=100 --parallel=4
+      - run: vendor/bin/pest -c phpunit.xml.dist --mutate --min=100
