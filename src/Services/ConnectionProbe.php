@@ -97,7 +97,9 @@ final class ConnectionProbe
                 return ConnectionProbeResult::ok();
             }
 
+            // @codeCoverageIgnoreStart Guzzle по умолчанию бросает на 4xx/5xx (http_errors); ветка — при http_errors=false.
             return ConnectionProbeResult::failed('API Яндекс.Метрики вернул HTTP '.$response->getStatusCode().'.');
+            // @codeCoverageIgnoreEnd
         } catch (GuzzleException $e) {
             $status = method_exists($e, 'getResponse') && $e->getResponse()
                 ? $e->getResponse()->getStatusCode()

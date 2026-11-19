@@ -282,7 +282,9 @@ class YandexSettings
             $value = $this->record()?->{$key};
         } catch (Throwable) {
             // Например, сменился APP_KEY и секрет не расшифровать.
+            // @codeCoverageIgnoreStart — в sqlite/testbench DecryptException при битом шифре не всегда воспроизводим.
             return '';
+            // @codeCoverageIgnoreEnd
         }
 
         return $value === null ? '' : mb_trim((string) $value);

@@ -10,7 +10,7 @@ test('connection probe accepts successful metrika http responses', function (): 
     $port = 19876;
     $fixtureDir = dirname(__DIR__).'/fixtures/http';
     $process = proc_open(
-        ['php', '-S', '127.0.0.1:'.$port, '-t', $fixtureDir],
+        ['php', '-S', '127.0.0.1:'.$port, '-t', $fixtureDir, $fixtureDir.'/router.php'],
         [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
         $pipes,
     );
@@ -21,7 +21,7 @@ test('connection probe accepts successful metrika http responses', function (): 
 
     try {
         usleep(200_000);
-        config()->set('moonshine-yandex-metrika.api_url', 'http://127.0.0.1:'.$port.'/metrika-ok.json');
+        config()->set('moonshine-yandex-metrika.api_url', 'http://127.0.0.1:'.$port.'/metrika-ok');
         app()->forgetInstance(ConnectionProbe::class);
 
         $probe = app(ConnectionProbe::class);
