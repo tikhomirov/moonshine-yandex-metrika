@@ -26,6 +26,7 @@ use Tikhomirov\MoonshineYandexMetrika\Support\AnalyticsTabAttributes;
 use Tikhomirov\MoonshineYandexMetrika\Support\AnalyticsTabRegistry;
 use Tikhomirov\MoonshineYandexMetrika\Support\DatePeriod;
 use Tikhomirov\MoonshineYandexMetrika\Support\WrapsPageComponentsInSpaceElements;
+use Tikhomirov\MoonshineYandexMetrika\Support\YandexOAuthApp;
 
 class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
 {
@@ -352,17 +353,28 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
             ? $this->account->profile()
             : null;
 
+        $oauthApp = $yandexReady && config('moonshine-yandex-metrika.widgets.account', true)
+            ? $this->account->oauthApp()
+            : new YandexOAuthApp(null);
+
         $accountHtml = '';
 
-        if ($account && ($account['avatar_url'] || $account['email'] || $account['login'])) {
-            $avatar = $account['avatar_url']
+        if (($account && ($account['avatar_url'] || $account['email'] || $account['login'])) || $oauthApp->isKnown()) {
+            $avatar = ($account['avatar_url'] ?? null)
                 ? '<img src="'.e($account['avatar_url']).'" alt="" class="h-10 w-10 rounded-full object-cover" width="40" height="40">'
                 : '';
             $name = e($account['email'] ?? $account['login'] ?? 'Yandex');
+            $appHtml = $oauthApp->isKnown()
+                ? '<div class="text-xs opacity-70 ym-oauth-app">'
+                    .e(__('moonshine-yandex-metrika::metrics.oauth_app')).': '
+                    .'<a href="'.e($oauthApp->appUrl()).'" target="_blank" rel="noopener noreferrer" class="underline">'
+                    .e((string) $oauthApp->clientId).'</a></div>'
+                : '';
             $accountHtml = '<div class="flex items-center gap-3">'
                 .$avatar
                 .'<div class="leading-tight"><div class="text-sm font-medium">'.$name.'</div>'
                 .'<div class="text-xs opacity-70">'.e(__('moonshine-yandex-metrika::metrics.account_source')).'</div>'
+                .$appHtml
                 .'</div></div>';
         }
 
@@ -869,6 +881,7 @@ HTML;
             if ($summary === null) {
                 $components[] = Alert::make('exclamation-triangle', 'warning')
                     ->content(__('moonshine-yandex-metrika::metrics.webmaster_fetch_failed'));
+                $components[] = $this->buildOAuthScopeActions('webmaster:verify, webmaster:hostinfo');
             } else {
                 $components[] = $this->buildCompactStats([
                     [
@@ -918,6 +931,7 @@ HTML;
                 if ($linksTotal === null) {
                     $components[] = Alert::make('information-circle', 'info')
                         ->content(__('moonshine-yandex-metrika::metrics.external_links_scope_hint'));
+                    $components[] = $this->buildOAuthScopeActions('webmaster:hostinfo');
                 }
             }
         }
@@ -953,6 +967,41 @@ HTML;
         }
 
         return $components;
+    }
+
+    /**
+     * Действия под алертом о нехватке прав: открыть OAuth-приложение и выпустить новый токен.
+     * Токен задаётся в YANDEX_METRIKA_TOKEN, поэтому новый токен нужно вставить в .env.
+     */
+    protected function buildOAuthScopeActions(string $scope): FlexibleRender
+    {
+        $app = $this->account?->oauthApp() ?? new YandexOAuthApp(null);
+
+        $label = $app->isKnown()
+            ? __('moonshine-yandex-metrika::metrics.oauth_open_app_add_scope', ['scope' => $scope])
+            : __('moonshine-yandex-metrika::metrics.oauth_open_apps');
+
+        $links = '<a href="'.e($app->editUrl()).'" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm">'
+            .e($label).'</a>';
+
+        $tokenUrl = $app->tokenUrl();
+
+        if ($tokenUrl !== null) {
+            $links .= '<a href="'.e($tokenUrl).'" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm">'
+                .e(__('moonshine-yandex-metrika::metrics.oauth_reconnect')).'</a>';
+        }
+
+        $hint = $app->isKnown()
+            ? __('moonshine-yandex-metrika::metrics.oauth_app').': '.$app->clientId.'. '
+                .__('moonshine-yandex-metrika::metrics.oauth_reconnect_hint')
+            : __('moonshine-yandex-metrika::metrics.oauth_client_id_unknown_hint');
+
+        return FlexibleRender::make(
+            '<div class="ym-oauth-actions">'
+            .'<div class="ym-cabinet-links">'.$links.'</div>'
+            .'<div class="mt-2 text-xs opacity-70">'.e($hint).'</div>'
+            .'</div>',
+        );
     }
 
     /**

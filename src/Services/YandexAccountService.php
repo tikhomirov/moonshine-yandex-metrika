@@ -7,6 +7,7 @@ namespace Tikhomirov\MoonshineYandexMetrika\Services;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Cache;
+use Tikhomirov\MoonshineYandexMetrika\Support\YandexOAuthApp;
 
 /**
  * Профиль OAuth-пользователя Яндекса (email + аватар).
@@ -43,7 +44,7 @@ class YandexAccountService
     }
 
     /**
-     * @return array{id: string|null, login: string|null, email: string|null, avatar_url: string|null}|null
+     * @return array{id: string|null, login: string|null, email: string|null, avatar_url: string|null, client_id: string|null}|null
      */
     public function profile(): ?array
     {
@@ -69,7 +70,22 @@ class YandexAccountService
             'avatar_url' => (! $avatarEmpty && is_string($avatarId) && $avatarId !== '')
                 ? 'https://avatars.yandex.net/get-yapic/'.$avatarId.'/islands-200'
                 : null,
+            'client_id' => isset($payload['client_id']) ? (string) $payload['client_id'] : null,
         ];
+    }
+
+    /**
+     * OAuth-приложение токена: client_id из конфига или из ответа login.yandex.ru/info.
+     */
+    public function oauthApp(): YandexOAuthApp
+    {
+        $configured = mb_trim((string) config('moonshine-yandex-metrika.oauth_client_id'));
+
+        if ($configured !== '') {
+            return new YandexOAuthApp($configured);
+        }
+
+        return new YandexOAuthApp($this->profile()['client_id'] ?? null);
     }
 
     /**

@@ -8,6 +8,13 @@ return [
     'token' => env('YANDEX_METRIKA_TOKEN'),
 
     /*
+     * Client ID of the Yandex OAuth app that issued the token (optional).
+     * Used only for links in the dashboard UI. When empty, it is read from
+     * login.yandex.ru/info for the current token. Never put the secret here.
+     */
+    'oauth_client_id' => env('YANDEX_OAUTH_CLIENT_ID'),
+
+    /*
      * Yandex Metrika counter ID (the number from your counter settings).
      */
     'counter_id' => env('YANDEX_METRIKA_COUNTER_ID'),

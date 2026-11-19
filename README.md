@@ -75,6 +75,15 @@ YANDEX_WEBMASTER_HOST_ID=https:example.com:443
 
 `YANDEX_WEBMASTER_HOST_ID` is required for Webmaster and must use the host format shown in Yandex Webmaster. Metrika keeps working without it.
 
+### OAuth app in the dashboard
+
+The dashboard header shows the `client_id` of the OAuth app that issued the token, linked to its page on oauth.yandex.ru. The `client_id` is read from login.yandex.ru/info for the current token; set `YANDEX_OAUTH_CLIENT_ID` to override it. Secrets are never shown.
+
+When a Webmaster scope is missing, the alert offers two actions:
+
+- **Open the app and add the scope**: opens `https://oauth.yandex.ru/client/edit/<client_id>`.
+- **Reconnect Yandex**: opens the Yandex consent screen for this app and issues a new token. Yandex revokes old tokens when app scopes change. The package reads the token only from `YANDEX_METRIKA_TOKEN`, so put the new token into `.env` and run `php artisan config:cache`. With the redirect URI `https://oauth.yandex.ru/verification_code`, Yandex shows the token on the page.
+
 ## KPI cards
 
 The Metrika tab shows four summary cards. Their set and order are controlled by `summary_metrics` in the published config. The default is visits, page views, unique visitors, bounce rate. Unknown keys are ignored.

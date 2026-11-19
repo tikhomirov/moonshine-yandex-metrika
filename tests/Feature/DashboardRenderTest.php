@@ -218,3 +218,146 @@ test('disabled widget flag still hides the matching kpi card', function () {
         'Bounce Rate',
     ]);
 });
+
+function bindOAuthClientProfile(?string $clientId): void
+{
+    app()->instance(YandexAccountService::class, new class($clientId) extends YandexAccountService
+    {
+        public function __construct(private readonly ?string $fakeClientId) {}
+
+        public function profile(): ?array
+        {
+            return [
+                'id' => '1',
+                'login' => 'owner',
+                'email' => 'owner@example.com',
+                'avatar_url' => null,
+                'client_id' => $this->fakeClientId,
+            ];
+        }
+    });
+}
+
+function bindWebmasterWithoutLinksScope(bool $summaryFails = false): void
+{
+    app()->instance(WebmasterService::class, new class($summaryFails) extends WebmasterService
+    {
+        public function __construct(private readonly bool $summaryFails) {}
+
+        public function forPeriod(DatePeriod $period): static
+        {
+            return $this;
+        }
+
+        public function isConfigured(): bool
+        {
+            return true;
+        }
+
+        public function displayHost(): string
+        {
+            return 'example.com';
+        }
+
+        public function summary(): ?array
+        {
+            return $this->summaryFails ? null : [
+                'searchable_pages_count' => 1,
+                'excluded_pages_count' => 0,
+                'site_problems' => ['FATAL' => 0, 'CRITICAL' => 0, 'POSSIBLE_PROBLEM' => 0, 'RECOMMENDATION' => 0],
+                'problems_total' => 0,
+                'sqi' => null,
+            ];
+        }
+
+        public function externalLinksTotal(): ?int
+        {
+            return null;
+        }
+
+        public function cabinetSummaryUrl(): string
+        {
+            return 'https://webmaster.yandex.ru/';
+        }
+
+        public function cabinetIndexingUrl(): string
+        {
+            return 'https://webmaster.yandex.ru/';
+        }
+
+        public function cabinetDiagnosticsUrl(): string
+        {
+            return 'https://webmaster.yandex.ru/';
+        }
+
+        public function cabinetLinksUrl(): string
+        {
+            return 'https://webmaster.yandex.ru/';
+        }
+
+        public function cabinetQueriesUrl(): string
+        {
+            return 'https://webmaster.yandex.ru/';
+        }
+    });
+}
+
+function renderWebmasterTabHtml(): string
+{
+    return collect(app(MetrikaDashboardPage::class)->renderWebmasterTab(
+        DatePeriod::today(),
+        ['webmaster_summary' => true, 'webmaster_queries' => false],
+        10,
+    ))->map(fn ($component) => (string) $component->render())->implode('');
+}
+
+test('toolbar shows the oauth app client_id with a link to its page', function () {
+    bindOAuthClientProfile('4760187d81bc4b7799476b42b5103713');
+
+    $html = collect(app(MetrikaDashboardPage::class)->getComponents())
+        ->map(fn ($component) => (string) $component->render())
+        ->implode('');
+
+    expect($html)->toContain('owner@example.com')
+        ->and($html)->toContain('OAuth app')
+        ->and($html)->toContain('href="https://oauth.yandex.ru/client/4760187d81bc4b7799476b42b5103713"')
+        ->and($html)->not->toContain('test-token');
+});
+
+test('missing links scope alert offers app edit link and reconnect', function () {
+    bindOAuthClientProfile('4760187d81bc4b7799476b42b5103713');
+    bindWebmasterWithoutLinksScope();
+
+    $html = renderWebmasterTabHtml();
+
+    expect($html)->toContain('webmaster:hostinfo (EXTERNAL_LINKS)')
+        ->and($html)->toContain('href="https://oauth.yandex.ru/client/edit/4760187d81bc4b7799476b42b5103713"')
+        ->and($html)->toContain('Open the app and add webmaster:hostinfo')
+        ->and($html)->toContain('response_type=token&amp;client_id=4760187d81bc4b7799476b42b5103713&amp;force_confirm=yes')
+        ->and($html)->toContain('Reconnect Yandex')
+        ->and($html)->toContain('YANDEX_METRIKA_TOKEN')
+        ->and($html)->not->toContain('test-token');
+});
+
+test('webmaster fetch failure alert also offers the oauth actions', function () {
+    bindOAuthClientProfile('4760187d81bc4b7799476b42b5103713');
+    bindWebmasterWithoutLinksScope(summaryFails: true);
+
+    $html = renderWebmasterTabHtml();
+
+    expect($html)->toContain('Failed to load Webmaster summary')
+        ->and($html)->toContain('Open the app and add webmaster:verify, webmaster:hostinfo')
+        ->and($html)->toContain('Reconnect Yandex');
+});
+
+test('scope alert asks for YANDEX_OAUTH_CLIENT_ID when the app is unknown', function () {
+    bindOAuthClientProfile(null);
+    bindWebmasterWithoutLinksScope();
+
+    $html = renderWebmasterTabHtml();
+
+    expect($html)->toContain('href="https://oauth.yandex.ru/"')
+        ->and($html)->toContain('Open Yandex OAuth apps')
+        ->and($html)->toContain('YANDEX_OAUTH_CLIENT_ID')
+        ->and($html)->not->toContain('Reconnect Yandex');
+});

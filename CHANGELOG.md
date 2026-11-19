@@ -5,6 +5,14 @@ All notable changes to this package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- The dashboard shows which Yandex OAuth app issued the token: its `client_id` next to the account, linked to the app page on oauth.yandex.ru
+- Missing-scope alerts on the Webmaster tab now offer actions: open the app's edit page to add the scope, and "Reconnect Yandex" to issue a new token
+- Optional `oauth_client_id` config key (`YANDEX_OAUTH_CLIENT_ID`); by default the `client_id` is read from login.yandex.ru/info for the current token
+
 ## [1.3.0] - 2026-11-19
 
 ### Added
