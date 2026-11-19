@@ -53,3 +53,4 @@
 
 - `1e3fa61` — feat: Yandex connection settings in the database with OAuth code flow
 - `ee7cd98` — feat: connection settings button, Yandex links in new tab, guzzle 8 support
+- `ec83235` — feat: webmaster host dropdown with APP_URL auto select, short notices, no oauth line in header
