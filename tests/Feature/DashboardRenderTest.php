@@ -168,3 +168,53 @@ test('metrika dashboard wraps all page components in one space-elements containe
     expect($root)->toBeInstanceOf(\MoonShine\UI\Components\Layout\Div::class)
         ->and((string) $root->getAttribute('class'))->toContain('space-elements');
 });
+
+/**
+ * @return list<string>
+ */
+function metrikaSummaryLabels(): array
+{
+    $html = collect(app(MetrikaDashboardPage::class)->getComponents())
+        ->map(fn ($component) => (string) $component->render())
+        ->implode('');
+
+    preg_match_all('/<div class="ym-stat__label">([^<]*)<\/div>/', $html, $matches);
+
+    return $matches[1];
+}
+
+test('metrika kpi cards follow the default summary_metrics order', function () {
+    expect(metrikaSummaryLabels())->toBe([
+        'Visits',
+        'Page Views',
+        'Unique Visitors',
+        'Bounce Rate',
+    ]);
+});
+
+test('metrika kpi cards follow a custom summary_metrics order and skip unknown keys', function () {
+    config()->set('moonshine-yandex-metrika.summary_metrics', [
+        'unique_visitors',
+        'unknown_metric',
+        'visits',
+        'pageviews',
+        'bounce_rate',
+    ]);
+
+    expect(metrikaSummaryLabels())->toBe([
+        'Unique Visitors',
+        'Visits',
+        'Page Views',
+        'Bounce Rate',
+    ]);
+});
+
+test('disabled widget flag still hides the matching kpi card', function () {
+    config()->set('moonshine-yandex-metrika.widgets.unique_visitors', false);
+
+    expect(metrikaSummaryLabels())->toBe([
+        'Visits',
+        'Page Views',
+        'Bounce Rate',
+    ]);
+});
