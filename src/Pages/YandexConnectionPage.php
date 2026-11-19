@@ -11,7 +11,10 @@ use MoonShine\UI\Components\FlexibleRender;
 use MoonShine\UI\Components\FormBuilder;
 use MoonShine\UI\Components\Layout\Box;
 use MoonShine\UI\Fields\Password;
+use MoonShine\UI\Fields\Select;
 use MoonShine\UI\Fields\Text;
+use Tikhomirov\MoonshineYandexMetrika\Services\WebmasterService;
+use Tikhomirov\MoonshineYandexMetrika\Services\YandexAccountService;
 use Tikhomirov\MoonshineYandexMetrika\Support\WrapsPageComponentsInSpaceElements;
 use Tikhomirov\MoonshineYandexMetrika\Support\YandexOAuthApp;
 use Tikhomirov\MoonshineYandexMetrika\Support\YandexOAuthFlow;
@@ -41,12 +44,27 @@ class YandexConnectionPage extends Page
     }
 
     /**
+     * Приложение из настроек (БД/env), а если client_id не задан, то из токена (login.yandex.ru/info).
+     */
+    protected function oauthApp(YandexSettings $settings): YandexOAuthApp
+    {
+        if ($settings->clientId() !== '') {
+            return new YandexOAuthApp($settings->clientId());
+        }
+
+        return $settings->token() !== ''
+            ? app(YandexAccountService::class)->oauthApp()
+            : new YandexOAuthApp(null);
+    }
+
+    /**
      * Ссылка «← Назад к Яндекс.Метрике»: страница не в меню, вход с дашборда.
      */
     protected function backLink(): FlexibleRender
     {
         return FlexibleRender::make(
-            '<a href="'.e($this->dashboardUrl()).'" class="btn btn-secondary btn-sm ym-back-link">← '
+            '<style>.ym-notice-link{font-weight:600;text-decoration:underline;text-underline-offset:2px;white-space:nowrap;}</style>'
+            .'<a href="'.e($this->dashboardUrl()).'" class="btn btn-secondary btn-sm ym-back-link">← '
             .e(__('moonshine-yandex-metrika::metrics.connection_back', [
                 'title' => (string) config('moonshine-yandex-metrika.page_title', 'Яндекс.Метрика'),
             ]))
@@ -81,6 +99,7 @@ class YandexConnectionPage extends Page
         return $this->wrapInSpaceElements([
             $this->backLink(),
             ...$this->scopeAlerts($settings),
+            ...$this->hostsAlert($settings),
             Box::make(__('moonshine-yandex-metrika::metrics.connection_status'), [
                 $this->statusTable($settings),
                 $this->oauthActions($settings, $flow),
@@ -89,11 +108,6 @@ class YandexConnectionPage extends Page
                 $this->settingsForm($settings),
             ]),
             Box::make(__('moonshine-yandex-metrika::metrics.connection_reset'), [
-                FlexibleRender::make(
-                    '<div class="mb-3 text-sm opacity-70">'
-                    .e(__('moonshine-yandex-metrika::metrics.connection_reset_hint'))
-                    .'</div>',
-                ),
                 FormBuilder::make(route('moonshine-yandex-metrika.connection.clear'))
                     ->name('yandex-connection-clear')
                     ->submit(__('moonshine-yandex-metrika::metrics.connection_reset_button'), ['class' => 'btn-error']),
@@ -112,7 +126,7 @@ class YandexConnectionPage extends Page
             return [];
         }
 
-        $app = new YandexOAuthApp($settings->clientId());
+        $app = $this->oauthApp($settings);
 
         return [
             Alert::make('exclamation-triangle', 'warning')
@@ -130,11 +144,25 @@ class YandexConnectionPage extends Page
 
     protected function statusTable(YandexSettings $settings): FlexibleRender
     {
-        $app = new YandexOAuthApp($settings->clientId());
+        $app = $this->oauthApp($settings);
         $rows = '';
 
         foreach (array_keys(YandexSettings::CONFIG_KEYS) as $key) {
             $value = $settings->get($key);
+            $source = $this->sourceBadge($settings->source($key));
+
+            if ($key === 'host_id') {
+                // Хост может быть выбран автоматически по APP_URL.
+                $webmaster = app(WebmasterService::class);
+                $value = $webmaster->hostId();
+                $source = $this->sourceBadge($webmaster->hostSource());
+            }
+
+            if ($key === 'client_id' && $value === '' && $app->isKnown()) {
+                // client_id не задан, но известен по токену.
+                $value = (string) $app->clientId;
+                $source = '<span class="badge badge-secondary">'.e(__('moonshine-yandex-metrika::metrics.connection_source_token')).'</span>';
+            }
 
             if ($value === '') {
                 $display = '<span class="opacity-60">'.e(__('moonshine-yandex-metrika::metrics.connection_not_set')).'</span>';
@@ -150,7 +178,7 @@ class YandexConnectionPage extends Page
             $rows .= $this->row(
                 (string) __('moonshine-yandex-metrika::metrics.connection_key_'.$key),
                 $display,
-                $this->sourceBadge($settings->source($key)),
+                $source,
             );
         }
 
@@ -193,7 +221,7 @@ class YandexConnectionPage extends Page
 
     protected function oauthActions(YandexSettings $settings, YandexOAuthFlow $flow): FlexibleRender
     {
-        $app = new YandexOAuthApp($settings->clientId());
+        $app = $this->oauthApp($settings);
         $hasToken = $settings->token() !== '';
         $label = __('moonshine-yandex-metrika::metrics.'.($hasToken ? 'oauth_reconnect' : 'connection_get_token'));
 
@@ -224,16 +252,13 @@ class YandexConnectionPage extends Page
         return FormBuilder::make(route('moonshine-yandex-metrika.connection.save'))
             ->name('yandex-connection-settings')
             ->fields([
-                Text::make(__('moonshine-yandex-metrika::metrics.connection_key_client_id'), 'client_id')
-                    ->hint(__('moonshine-yandex-metrika::metrics.connection_db_over_env')),
+                Text::make(__('moonshine-yandex-metrika::metrics.connection_key_client_id'), 'client_id'),
                 Password::make(__('moonshine-yandex-metrika::metrics.connection_key_client_secret'), 'client_secret')
                     ->customAttributes(['placeholder' => $keep, 'autocomplete' => 'new-password']),
                 Password::make(__('moonshine-yandex-metrika::metrics.connection_key_token'), 'token')
-                    ->customAttributes(['placeholder' => $keep, 'autocomplete' => 'new-password'])
-                    ->hint(__('moonshine-yandex-metrika::metrics.connection_token_hint')),
+                    ->customAttributes(['placeholder' => $keep, 'autocomplete' => 'new-password']),
                 Text::make(__('moonshine-yandex-metrika::metrics.connection_key_counter_id'), 'counter_id'),
-                Text::make(__('moonshine-yandex-metrika::metrics.connection_key_host_id'), 'host_id')
-                    ->customAttributes(['placeholder' => 'https:example.com:443']),
+                $this->hostField($record?->host_id),
             ])
             ->fill([
                 // Секреты в форму не попадают.
@@ -242,6 +267,68 @@ class YandexConnectionPage extends Page
                 'host_id' => $record?->host_id,
             ])
             ->submit(__('moonshine-yandex-metrika::metrics.connection_save'));
+    }
+
+    /**
+     * Сайт Вебмастера: выпадающий список по токену, при ошибке API — текстовое поле.
+     */
+    protected function hostField(?string $stored): Text|Select
+    {
+        $label = __('moonshine-yandex-metrika::metrics.connection_key_host_id');
+        $hosts = $this->hosts();
+
+        if ($hosts === null) {
+            return Text::make($label, 'host_id')->customAttributes(['placeholder' => 'https:example.com:443']);
+        }
+
+        $auto = (string) __('moonshine-yandex-metrika::metrics.connection_host_auto');
+        $webmaster = app(WebmasterService::class);
+        $options = [];
+
+        foreach ($hosts as $host) {
+            $options[$host['host_id']] = $host['url'];
+        }
+
+        if ($webmaster->hostSource() === YandexSettings::SOURCE_AUTO && isset($options[$webmaster->hostId()])) {
+            // Подсказываем, какой сайт выбран автоматически.
+            $auto .= ': '.$options[$webmaster->hostId()];
+        }
+
+        $options = ['' => $auto] + $options;
+
+        if ($stored !== null && $stored !== '' && ! isset($options[$stored])) {
+            $options[$stored] = $stored;
+        }
+
+        return Select::make($label, 'host_id')->options($options)->native();
+    }
+
+    /**
+     * @return list<array{host_id: string, url: string, verified: bool}>|null
+     */
+    protected function hosts(): ?array
+    {
+        return app(YandexSettings::class)->token() !== ''
+            ? app(WebmasterService::class)->hosts()
+            : null;
+    }
+
+    /**
+     * @return list<ComponentContract>
+     */
+    protected function hostsAlert(YandexSettings $settings): array
+    {
+        if ($this->hosts() !== null) {
+            return [];
+        }
+
+        return [
+            Alert::make('information-circle', 'info')->content(
+                e(__('moonshine-yandex-metrika::metrics.connection_hosts_failed'))
+                .' <a href="https://webmaster.yandex.ru/sites/" target="_blank" rel="noopener noreferrer" class="ym-notice-link">'
+                .e(__('moonshine-yandex-metrika::metrics.connection_open_webmaster')).' ↗</a>',
+            ),
+        ];
     }
 
     private function row(string $label, string $valueHtml, string $sourceHtml): string
@@ -256,6 +343,7 @@ class YandexConnectionPage extends Page
         return match ($source) {
             YandexSettings::SOURCE_DB => '<span class="badge badge-success">'.e(__('moonshine-yandex-metrika::metrics.connection_source_db')).'</span>',
             YandexSettings::SOURCE_ENV => '<span class="badge badge-info">'.e(__('moonshine-yandex-metrika::metrics.connection_source_env')).'</span>',
+            YandexSettings::SOURCE_AUTO => '<span class="badge badge-warning">'.e(__('moonshine-yandex-metrika::metrics.connection_source_auto')).'</span>',
             default => '<span class="badge">—</span>',
         };
     }

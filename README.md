@@ -73,11 +73,13 @@ YANDEX_METRIKA_DEFAULT_PRESET=today
 YANDEX_WEBMASTER_HOST_ID=https:example.com:443
 ```
 
-`YANDEX_WEBMASTER_HOST_ID` is required for Webmaster and must use the host format shown in Yandex Webmaster. Metrika keeps working without it.
+`YANDEX_WEBMASTER_HOST_ID` is optional. Without it (and without a host saved on the connection page) the package loads the account's sites from the Webmaster API and picks the one matching `APP_URL` (scheme, host and port; `www` is ignored). If nothing matches, it falls back to `YANDEX_WEBMASTER_HOST_ID`, and then to the only site of the account. The auto choice is not saved. The site list is cached for 5 minutes. Metrika keeps working without a host.
 
-### OAuth app in the dashboard
+### OAuth app and notices
 
-The dashboard header shows the `client_id` of the OAuth app that issued the token, linked to its page on oauth.yandex.ru. The `client_id` is read from login.yandex.ru/info for the current token; set `YANDEX_OAUTH_CLIENT_ID` to override it. Secrets are never shown.
+All OAuth app details live on the **Yandex connection** page; the dashboard header shows only the account and the **Connection settings** button. If the app ClientID is not saved, the page shows the one read from login.yandex.ru/info for the current token (badge "from token"); `YANDEX_OAUTH_CLIENT_ID` overrides it.
+
+Dashboard notices (connection errors, missing scopes, Webmaster not configured) are one short line with a **Yandex connection →** link.
 
 When a Webmaster scope is missing, the alert offers two actions:
 
@@ -98,7 +100,9 @@ The **Yandex connection** page is registered in MoonShine automatically (disable
 
 All links to Yandex (the app page, its edit page, token issuing, **Get token** / **Reconnect**) open in a new tab, so the admin stays open. After OAuth the new tab returns to the connection page and can be closed. The token date is shown in `app.timezone`.
 
-The page shows the OAuth app (ClientID with a link to oauth.yandex.ru), where each value comes from (DB or env), masked secrets, granted and missing scopes, and has the settings form, a **Get token** / **Reconnect** button and **Clear and fall back to env**.
+The page shows the OAuth app (ClientID with a link to oauth.yandex.ru), where each value comes from (DB, env or auto), masked secrets, granted and missing scopes, and has the settings form, a **Get token** / **Reconnect** button and **Clear and fall back to env**.
+
+**Webmaster host** in the form is a dropdown with the account's sites from the Webmaster API. **Auto (by APP_URL)** keeps the host unsaved and shows which site was picked. If there is no token or the API fails, the field becomes a text input and the page shows a short notice with a link to Webmaster. `yandex-metrika:connection:set --host-id=...` works as before.
 
 **Get token** uses the OAuth authorization code flow with `state` and PKCE. It requests the scopes from `oauth_scopes` and saves the token to the database. For it to work:
 

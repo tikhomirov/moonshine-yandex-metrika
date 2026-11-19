@@ -16,6 +16,44 @@ use Tikhomirov\MoonshineYandexMetrika\Support\YandexSettings;
 
 const YM_CLIENT_ID = '4760187d81bc4b7799476b42b5103713';
 
+beforeEach(function () {
+    // Никаких реальных запросов к Яндексу из тестов.
+    config()->set('moonshine-yandex-metrika.webmaster.api_url', 'http://127.0.0.1:1/v4');
+    config()->set('moonshine-yandex-metrika.login_info_url', 'http://127.0.0.1:1/info');
+    config()->set('moonshine-yandex-metrika.api_url', 'http://127.0.0.1:1/stat/v1/data');
+});
+
+/**
+ * @param  list<array{host_id: string, url: string, verified: bool}>|null  $hosts
+ */
+function bindWebmasterHosts(?array $hosts): WebmasterService
+{
+    $service = new class($hosts) extends WebmasterService
+    {
+        public function __construct(private readonly ?array $fakeHosts)
+        {
+            parent::__construct();
+        }
+
+        public function hosts(): ?array
+        {
+            return $this->fakeHosts;
+        }
+    };
+
+    app()->instance(WebmasterService::class, $service);
+
+    return $service;
+}
+
+function demoHosts(): array
+{
+    return [
+        ['host_id' => 'https:other.example:443', 'url' => 'https://other.example', 'verified' => true],
+        ['host_id' => 'https:demo.example:443', 'url' => 'https://demo.example', 'verified' => true],
+    ];
+}
+
 function migrateYandexSettings(): void
 {
     test()->artisan('migrate', ['--force' => true])->run();
@@ -251,4 +289,90 @@ test('routes for the connection page and oauth are registered', function () {
         ->and(route('moonshine-yandex-metrika.oauth.redirect'))->toEndWith('/admin/yandex-analytics/oauth/redirect')
         ->and(route('moonshine-yandex-metrika.connection.save'))->toEndWith('/admin/yandex-analytics/connection')
         ->and(route('moonshine-yandex-metrika.connection.clear'))->toEndWith('/admin/yandex-analytics/connection/clear');
+});
+
+test('webmaster hosts are parsed from the api response', function () {
+    expect(WebmasterService::hostsFromResponse(['hosts' => [
+        ['host_id' => 'https:demo.example:443', 'unicode_host_url' => 'https://demo.example/', 'verified' => true],
+        ['host_id' => 'http:пример.рф:80', 'ascii_host_url' => 'http://xn--e1afmkfd.xn--p1ai/', 'unicode_host_url' => 'http://пример.рф/'],
+        ['broken' => true],
+    ]]))->toBe([
+        ['host_id' => 'https:demo.example:443', 'url' => 'https://demo.example', 'verified' => true],
+        ['host_id' => 'http:пример.рф:80', 'url' => 'http://пример.рф', 'verified' => false],
+    ]);
+});
+
+test('host is matched to APP_URL by scheme, host and port ignoring www', function (string $appUrl, ?string $expected) {
+    $ids = ['https:other.example:443', 'https:demo.example:443', 'http:demo.example:80', 'https:demo.example:8443'];
+
+    expect(WebmasterService::matchHostByUrl($ids, $appUrl))->toBe($expected);
+})->with([
+    ['https://demo.example', 'https:demo.example:443'],
+    ['https://www.demo.example/admin', 'https:demo.example:443'],
+    ['HTTPS://Demo.Example:443', 'https:demo.example:443'],
+    ['http://demo.example', 'http:demo.example:80'],
+    ['https://demo.example:8443', 'https:demo.example:8443'],
+    ['https://missing.example', null],
+    ['not a url', null],
+]);
+
+test('host is auto selected by APP_URL without saving anything', function () {
+    config()->set('app.url', 'https://www.demo.example');
+    config()->set('moonshine-yandex-metrika.webmaster.host_id', 'https:env.example:443');
+
+    $service = bindWebmasterHosts(demoHosts());
+
+    expect($service->hostId())->toBe('https:demo.example:443')
+        ->and($service->hostSource())->toBe('auto')
+        ->and($service->isConfigured())->toBeTrue();
+});
+
+test('saved host wins, then env, then the only site of the account', function () {
+    config()->set('app.url', 'https://nomatch.example');
+    config()->set('moonshine-yandex-metrika.webmaster.host_id', 'https:env.example:443');
+
+    expect(bindWebmasterHosts(demoHosts())->hostSource())->toBe('env');
+
+    config()->set('moonshine-yandex-metrika.webmaster.host_id', null);
+    $single = bindWebmasterHosts([demoHosts()[1]]);
+
+    expect($single->hostId())->toBe('https:demo.example:443')
+        ->and($single->hostSource())->toBe('auto');
+
+    expect(bindWebmasterHosts(demoHosts())->hostId())->toBe('');
+    expect(bindWebmasterHosts(null)->hostId())->toBe('');
+
+    migrateYandexSettings();
+    app(YandexSettings::class)->save(['host_id' => 'https:other.example:443']);
+    $saved = bindWebmasterHosts(demoHosts());
+
+    expect($saved->hostId())->toBe('https:other.example:443')
+        ->and($saved->hostSource())->toBe('db');
+});
+
+test('connection page offers the account sites in a select', function () {
+    migrateYandexSettings();
+    config()->set('app.url', 'https://demo.example');
+    bindWebmasterHosts(demoHosts());
+
+    $html = renderConnectionPage();
+
+    expect($html)->toMatch('#<select[^>]*name="host_id"#')
+        ->and($html)->toContain('value="https:demo.example:443"')
+        ->and($html)->toContain('https://other.example')
+        ->and($html)->toContain('Auto (by APP_URL): https://demo.example')
+        ->and($html)->toContain('badge-warning')
+        ->and($html)->not->toContain('Could not load Webmaster sites');
+});
+
+test('connection page falls back to a text field and a short notice when sites are unavailable', function () {
+    migrateYandexSettings();
+    bindWebmasterHosts(null);
+
+    $html = renderConnectionPage();
+
+    expect($html)->toContain('Could not load Webmaster sites.')
+        ->and($html)->toContain('href="https://webmaster.yandex.ru/sites/"')
+        ->and($html)->toMatch('#<input[^>]*name="host_id"#')
+        ->and(yandexLinksWithoutBlankTarget($html))->toBe([]);
 });

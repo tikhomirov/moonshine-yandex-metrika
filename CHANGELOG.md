@@ -20,6 +20,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - "Connection settings" button in the dashboard header; the connection page is not a menu item and has a "Back to Yandex Metrika" link
 - All Yandex OAuth links open in a new tab (`target="_blank" rel="noopener noreferrer"`); the header `client_id` is a visible link with an external icon
 - Token date is shown in `app.timezone`
+- Webmaster host is a dropdown of the account's sites on the connection page; without a saved host the site matching `APP_URL` is picked automatically (then env, then the only site). The site list is cached for 5 minutes
+- Dashboard notices are one short line with a link to the connection page
+
+### Changed
+
+- The dashboard header no longer shows the OAuth app line and the data source caption; app details are on the connection page (with the ClientID read from the token when it is not saved)
+- Explanatory captions and hints removed from the dashboard, tabs and connection page
 
 ### Compatibility
 

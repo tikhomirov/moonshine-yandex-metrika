@@ -24,6 +24,8 @@ class YandexSettings
 
     public const string SOURCE_ENV = 'env';
 
+    public const string SOURCE_AUTO = 'auto';
+
     /** Ключ настройки => ключ в config/moonshine-yandex-metrika.php */
     public const array CONFIG_KEYS = [
         'client_id' => 'oauth_client_id',
@@ -245,6 +247,16 @@ class YandexSettings
         }
 
         return mb_strlen($value) <= 8 ? '••••' : '••••'.mb_substr($value, -4);
+    }
+
+    public function storedValue(string $key): string
+    {
+        return $this->stored($key);
+    }
+
+    public function configValue(string $key): string
+    {
+        return $this->fromConfig($key);
     }
 
     private function stored(string $key): string

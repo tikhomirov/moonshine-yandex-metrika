@@ -21,7 +21,13 @@ class WebmasterService
 
     private ?string $userId = null;
 
-    private string $hostId;
+    /** Выбранный host_id; null — ещё не определён (см. resolveHost()). */
+    private ?string $hostId = null;
+
+    private ?string $hostSource = null;
+
+    /** Список сайтов кэшируется коротко: 5 минут. */
+    private const int HOSTS_TTL = 300;
 
     private int $cacheTtl;
 
@@ -37,7 +43,6 @@ class WebmasterService
         $this->token = $settings->token();
         $userId = config('moonshine-yandex-metrika.webmaster.user_id');
         $this->userId = $userId !== null && $userId !== '' ? (string) $userId : null;
-        $this->hostId = $settings->hostId();
         $this->cacheTtl = (int) config('moonshine-yandex-metrika.cache_ttl', 3600);
         $this->cacheStore = config('moonshine-yandex-metrika.cache_store');
         $this->apiUrl = rtrim((string) config(
@@ -65,12 +70,154 @@ class WebmasterService
 
     public function isConfigured(): bool
     {
-        return $this->token !== '' && $this->hostId !== '';
+        return $this->token !== '' && $this->hostId() !== '';
     }
 
     public function hostId(): string
     {
+        if ($this->hostId === null) {
+            [$this->hostId, $this->hostSource] = $this->resolveHost();
+        }
+
         return $this->hostId;
+    }
+
+    /**
+     * Откуда взят host_id: db, auto (по APP_URL или единственный сайт), env или null.
+     */
+    public function hostSource(): ?string
+    {
+        $this->hostId();
+
+        return $this->hostSource;
+    }
+
+    /**
+     * Сайты аккаунта по текущему токену. Null — нет токена или API вернул ошибку.
+     *
+     * @return list<array{host_id: string, url: string, verified: bool}>|null
+     */
+    public function hosts(): ?array
+    {
+        if ($this->token === '') {
+            return null;
+        }
+
+        $userId = $this->resolveUserId();
+
+        if ($userId === null) {
+            return null;
+        }
+
+        $data = $this->get("user/{$userId}/hosts", [], self::HOSTS_TTL);
+
+        return $data === null ? null : self::hostsFromResponse($data);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data  ответ GET /user/{user_id}/hosts
+     * @return list<array{host_id: string, url: string, verified: bool}>
+     */
+    public static function hostsFromResponse(array $data): array
+    {
+        $hosts = [];
+
+        foreach ((array) ($data['hosts'] ?? []) as $host) {
+            if (! is_array($host) || ! isset($host['host_id']) || $host['host_id'] === '') {
+                continue;
+            }
+
+            $hosts[] = [
+                'host_id' => (string) $host['host_id'],
+                'url' => rtrim((string) ($host['unicode_host_url'] ?? $host['ascii_host_url'] ?? $host['host_id']), '/'),
+                'verified' => (bool) ($host['verified'] ?? false),
+            ];
+        }
+
+        return $hosts;
+    }
+
+    /**
+     * Сайт, совпадающий с URL приложения: схема, хост и порт; www не учитывается.
+     *
+     * @param  list<string>  $hostIds  host_id вида https:example.com:443
+     */
+    public static function matchHostByUrl(array $hostIds, string $url): ?string
+    {
+        $target = self::urlKey($url);
+
+        if ($target === null) {
+            return null;
+        }
+
+        foreach ($hostIds as $hostId) {
+            if (preg_match('/^(https?):([^:]+):(\d+)$/i', $hostId, $m) === 1
+                && $target === mb_strtolower($m[1]).'://'.self::bareHost($m[2]).':'.$m[3]) {
+                return $hostId;
+            }
+        }
+
+        return null;
+    }
+
+    private static function urlKey(string $url): ?string
+    {
+        $parts = parse_url(mb_trim($url));
+
+        if (! is_array($parts) || ! isset($parts['scheme'], $parts['host'])) {
+            return null;
+        }
+
+        $scheme = mb_strtolower($parts['scheme']);
+
+        if (! in_array($scheme, ['http', 'https'], true)) {
+            return null;
+        }
+
+        $port = $parts['port'] ?? ($scheme === 'https' ? 443 : 80);
+
+        return $scheme.'://'.self::bareHost($parts['host']).':'.$port;
+    }
+
+    private static function bareHost(string $host): string
+    {
+        $host = mb_strtolower($host);
+
+        return str_starts_with($host, 'www.') ? mb_substr($host, 4) : $host;
+    }
+
+    /**
+     * Порядок: сохранённый в БД → сайт с адресом APP_URL → env → единственный сайт аккаунта.
+     *
+     * @return array{0: string, 1: string|null}
+     */
+    private function resolveHost(): array
+    {
+        $settings = app(YandexSettings::class);
+        $stored = $settings->storedValue('host_id');
+
+        if ($stored !== '') {
+            return [$stored, YandexSettings::SOURCE_DB];
+        }
+
+        $hostIds = array_column($this->hosts() ?? [], 'host_id');
+        $match = self::matchHostByUrl($hostIds, (string) config('app.url'));
+
+        if ($match !== null) {
+            return [$match, YandexSettings::SOURCE_AUTO];
+        }
+
+        $env = $settings->configValue('host_id');
+
+        if ($env !== '') {
+            return [$env, YandexSettings::SOURCE_ENV];
+        }
+
+        if (count($hostIds) === 1) {
+            return [$hostIds[0], YandexSettings::SOURCE_AUTO];
+        }
+
+        return ['', null];
     }
 
     /**
@@ -241,7 +388,7 @@ class WebmasterService
 
     private function cabinetUrl(string $path): string
     {
-        $hostId = $this->hostId !== '' ? $this->hostId : $this->displayHost();
+        $hostId = $this->hostId() !== '' ? $this->hostId() : $this->displayHost();
 
         return 'https://webmaster.yandex.ru/site/'.$hostId.'/'.ltrim($path, '/');
     }
@@ -303,11 +450,11 @@ class WebmasterService
     public function displayHost(): string
     {
         // host_id: https:example.com:443 → example.com
-        if (preg_match('/^https?:([^:]+):\d+$/', $this->hostId, $matches) === 1) {
+        if (preg_match('/^https?:([^:]+):\d+$/', $this->hostId(), $matches) === 1) {
             return $matches[1];
         }
 
-        return $this->hostId !== '' ? $this->hostId : 'site';
+        return $this->hostId() !== '' ? $this->hostId() : 'site';
     }
 
     public function resolveUserId(): ?string
@@ -333,16 +480,18 @@ class WebmasterService
 
     private function encodedHostId(): string
     {
-        return rawurlencode($this->hostId);
+        return rawurlencode($this->hostId());
     }
 
     /**
      * @param  array<string, mixed>  $query
      * @return array<string, mixed>|null
      */
-    private function get(string $path, array $query = []): ?array
+    private function get(string $path, array $query = [], ?int $ttl = null): ?array
     {
-        $cacheKey = 'yandex_webmaster_'.md5($path.'|'.serialize($query).'|'.$this->hostId.'|'.sha1($this->token));
+        // host_id уже есть в пути запросов по сайту.
+        $cacheKey = 'yandex_webmaster_'.md5($path.'|'.serialize($query).'|'.sha1($this->token));
+        $ttl ??= $this->cacheTtl;
 
         $store = $this->cacheTtl > 0
             ? ($this->cacheStore ? Cache::store($this->cacheStore) : Cache::store())
@@ -367,7 +516,7 @@ class WebmasterService
                 return null;
             }
 
-            $store?->put($cacheKey, $data, $this->cacheTtl);
+            $store?->put($cacheKey, $data, min($ttl, $this->cacheTtl));
 
             return $data;
         } catch (GuzzleException $e) {

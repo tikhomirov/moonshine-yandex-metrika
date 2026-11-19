@@ -39,8 +39,7 @@ final class ConnectionProbe
             }
 
             return ConnectionProbeResult::notConfigured(
-                'Не заполнены переменные окружения: '.implode(', ', $missing)
-                    .'. Их можно задать и на странице «Подключение Яндекса».',
+                'Не заданы: '.implode(', ', $missing).'.',
             );
         }
 
@@ -98,11 +97,13 @@ final class ConnectionProbe
 
     private function explain(int $status, string $message): string
     {
+        logger()->channel('single')->warning('[YandexMetrika] probe failed: '.$message);
+
         return match ($status) {
-            401 => 'Яндекс не распознал токен (401). Обновите YANDEX_METRIKA_TOKEN.',
-            403 => 'Нет доступа к счётчику (403). Проверьте токен, scopes и YANDEX_METRIKA_COUNTER_ID.',
-            404 => 'Счётчик не найден (404). Проверьте YANDEX_METRIKA_COUNTER_ID.',
-            default => 'Не удалось соединиться с API Яндекс.Метрики: '.$message,
+            401 => 'Токен не принят Яндексом (401).',
+            403 => 'Нет доступа к счётчику (403).',
+            404 => 'Счётчик не найден (404).',
+            default => 'API Яндекс.Метрики недоступен.',
         };
     }
 }

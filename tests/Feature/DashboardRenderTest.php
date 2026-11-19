@@ -311,7 +311,7 @@ function renderWebmasterTabHtml(): string
     ))->map(fn ($component) => (string) $component->render())->implode('');
 }
 
-test('toolbar shows the oauth app client_id with a link to its page', function () {
+test('toolbar shows the account without oauth app details or captions', function () {
     bindOAuthClientProfile('4760187d81bc4b7799476b42b5103713');
 
     $html = collect(app(MetrikaDashboardPage::class)->getComponents())
@@ -319,11 +319,10 @@ test('toolbar shows the oauth app client_id with a link to its page', function (
         ->implode('');
 
     expect($html)->toContain('owner@example.com')
-        ->and($html)->toContain('OAuth app')
-        ->and($html)->toContain('href="https://oauth.yandex.ru/client/4760187d81bc4b7799476b42b5103713"')
-        ->and($html)->toContain('class="ym-ext-link"')
-        ->and($html)->not->toContain('test-token')
-        ->and(yandexLinksWithoutBlankTarget($html))->toBe([]);
+        ->and($html)->not->toContain('OAuth app')
+        ->and($html)->not->toContain('4760187d81bc4b7799476b42b5103713')
+        ->and($html)->not->toContain('Yandex data source')
+        ->and($html)->not->toContain('test-token');
 });
 
 test('toolbar has a connection settings button leading to the connection page', function () {
@@ -342,12 +341,13 @@ test('missing links scope alert offers app edit link and reconnect', function ()
 
     $html = renderWebmasterTabHtml();
 
-    expect($html)->toContain('webmaster:hostinfo (EXTERNAL_LINKS)')
+    expect($html)->toContain('External links are unavailable: no webmaster:hostinfo scope.')
+        ->and($html)->toMatch('#<a href="[^"]*/admin/page/yandex-connection-page" class="ym-notice-link">Yandex connection →</a>#')
         ->and($html)->toContain('href="https://oauth.yandex.ru/client/edit/4760187d81bc4b7799476b42b5103713"')
         ->and($html)->toContain('Open the app and add webmaster:hostinfo')
         ->and($html)->toContain('response_type=token&amp;client_id=4760187d81bc4b7799476b42b5103713&amp;force_confirm=yes')
         ->and($html)->toContain('Reconnect Yandex')
-        ->and($html)->toContain('YANDEX_METRIKA_TOKEN')
+        ->and($html)->not->toContain('not tied to the selected period')
         ->and($html)->not->toContain('test-token')
         ->and(yandexLinksWithoutBlankTarget($html))->toBe([]);
 });
@@ -358,12 +358,13 @@ test('webmaster fetch failure alert also offers the oauth actions', function () 
 
     $html = renderWebmasterTabHtml();
 
-    expect($html)->toContain('Failed to load Webmaster summary')
+    expect($html)->toContain('Could not load Webmaster data.')
+        ->and($html)->toContain('ym-notice-link')
         ->and($html)->toContain('Open the app and add webmaster:verify, webmaster:hostinfo')
         ->and($html)->toContain('Reconnect Yandex');
 });
 
-test('scope alert asks for YANDEX_OAUTH_CLIENT_ID when the app is unknown', function () {
+test('scope alert links to the apps list and the connection page when the app is unknown', function () {
     bindOAuthClientProfile(null);
     bindWebmasterWithoutLinksScope();
 
@@ -371,7 +372,7 @@ test('scope alert asks for YANDEX_OAUTH_CLIENT_ID when the app is unknown', func
 
     expect($html)->toContain('href="https://oauth.yandex.ru/"')
         ->and($html)->toContain('Open Yandex OAuth apps')
-        ->and($html)->toContain('YANDEX_OAUTH_CLIENT_ID')
+        ->and($html)->toContain('ym-notice-link')
         ->and($html)->not->toContain('Reconnect Yandex');
 });
 
