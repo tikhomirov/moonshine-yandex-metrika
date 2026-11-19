@@ -1,19 +1,18 @@
 <p align="center">
-  <strong>Аналитика Яндекс.Метрики и Вебмастера прямо в MoonShine</strong><br>
-  Посещаемость, поисковые запросы и индексация — в одном дашборде.
+  <img src="https://raw.githubusercontent.com/tikhomirov/moonshine-yandex-metrika/main/.github/cover.png" alt="MoonShine Yandex Metrika" width="100%">
 </p>
 
 <p align="center">
-  <a href="README.md">English version</a>
-</p>
-
-<h1 align="center">MoonShine Yandex Metrika</h1>
-
-<p align="center">
-  <a href="https://packagist.org/packages/tikhomirov/moonshine-yandex-metrika"><img src="https://img.shields.io/packagist/v/tikhomirov/moonshine-yandex-metrika?style=for-the-badge" alt="Версия Packagist"></a>
+  <a href="https://packagist.org/packages/tikhomirov/moonshine-yandex-metrika"><img src="https://img.shields.io/packagist/v/tikhomirov/moonshine-yandex-metrika?style=for-the-badge&label=packagist" alt="Версия Packagist"></a>
   <img src="https://img.shields.io/badge/PHP-8.4%2B-777BB4?style=for-the-badge&logo=php&logoColor=white" alt="PHP 8.4+">
+  <img src="https://img.shields.io/badge/Laravel-12%20%7C%2013-FF2D20?style=for-the-badge&logo=laravel&logoColor=white" alt="Laravel 12 | 13">
   <img src="https://img.shields.io/badge/MoonShine-5.x-6C4AB6?style=for-the-badge" alt="MoonShine 5.x">
-  <a href="https://github.com/tikhomirov/moonshine-yandex-metrika/actions/workflows/tests.yml"><img src="https://github.com/tikhomirov/moonshine-yandex-metrika/actions/workflows/tests.yml/badge.svg" alt="Тесты"></a>
+  <a href="https://github.com/tikhomirov/moonshine-yandex-metrika/actions/workflows/tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/tikhomirov/moonshine-yandex-metrika/tests.yml?branch=main&style=for-the-badge&label=tests&logo=github" alt="Тесты"></a>
+</p>
+
+<p align="center">
+  Аналитика Яндекс.Метрики и Вебмастера в MoonShine 5.<br>
+  <a href="README.md">English version</a>
 </p>
 
 <p align="center">
@@ -22,13 +21,11 @@
 
 ## Возможности
 
-- **Яндекс.Метрика:** визиты, просмотры, уникальные посетители, отказы, график и популярные страницы.
-- **Яндекс.Вебмастер:** сводка индексации, ошибки сайта, внешние ссылки и популярные поисковые запросы.
-- **Гибкие периоды:** готовые пресеты и произвольный диапазон дат.
-- **CSV-экспорт** статистики Метрики и запросов Вебмастера.
-- Данные аккаунта Яндекса и кэширование ответов API.
-- Реестр вкладок для подключения сторонней аналитики без форка пакета.
-- Интерфейс на русском и английском языках.
+- **Метрика:** визиты, просмотры, уникальные посетители, отказы, график, популярные страницы, источники, поисковые фразы, география, браузеры.
+- **Вебмастер:** сводка индексации, ошибки сайта, внешние ссылки, популярные запросы.
+- **Подключение в интерфейсе:** страница из трёх шагов с OAuth, настройки в БД с fallback на env.
+- **Автонастройка:** счётчик и сайт Вебмастера выбираются по `APP_URL`.
+- Пресеты периодов и свой диапазон, CSV-экспорт, кеш API, интерфейс RU/EN, реестр вкладок для сторонней аналитики.
 
 ## Требования
 
@@ -43,9 +40,10 @@
 ```bash
 composer require tikhomirov/moonshine-yandex-metrika
 php artisan vendor:publish --tag=moonshine-yandex-metrika-config
+php artisan migrate   # необязательно: настройки в БД
 ```
 
-Добавьте страницу в меню MoonShine и зарегистрируйте её как custom page в Layout / провайдере:
+Добавьте дашборд в меню MoonShine:
 
 ```php
 use Tikhomirov\MoonshineYandexMetrika\Pages\MetrikaDashboardPage;
@@ -53,128 +51,85 @@ use Tikhomirov\MoonshineYandexMetrika\Pages\MetrikaDashboardPage;
 MenuItem::make(MetrikaDashboardPage::class, 'Яндекс.Метрика');
 ```
 
-## Настройка Яндекса
+Страница **Подключение Яндекса** регистрируется сама и открывается кнопкой **Настройки подключения** на дашборде (отключить: `'connection_page' => false`).
 
-Создайте приложение в [Яндекс OAuth](https://oauth.yandex.ru/), укажите redirect URI `https://oauth.yandex.ru/verification_code` и выдайте необходимые права:
+## Подключение Яндекса
 
-| Scope | Для чего нужен |
+<p align="center">
+  <img src="https://raw.githubusercontent.com/tikhomirov/moonshine-yandex-metrika/main/art/connection-steps.jpg" alt="Страница «Подключение Яндекса»: шаги приложения, токена, счётчика и сайта" width="80%">
+</p>
+
+1. **Приложение Яндекса.** Нажмите **Создать приложение** (oauth.yandex.ru), добавьте права из таблицы ниже и Redirect URI со страницы, сохраните ClientID и Client secret.
+2. **Токен.** Нажмите **Получить токен через Яндекс**: OAuth authorization code flow со `state` и PKCE, токен сохраняется в БД. Токен можно ввести и вручную.
+3. **Счётчик и сайт.** Выберите счётчик Метрики и сайт Вебмастера в списках или оставьте **Авто (по APP_URL)**.
+
+**Проверить подключение** делает свежий запрос к Метрике, **Сбросить** удаляет сохранённые настройки и возвращает env. Все ссылки на Яндекс открываются в новой вкладке.
+
+**Redirect URI** (`admin` — ваш `moonshine.prefix`):
+
+```
+https://ваш-сайт/admin/yandex-analytics/oauth/callback
+```
+
+**Права** (`oauth_scopes` в конфиге; в приложении должны быть все, иначе Яндекс вернёт `invalid_scope`):
+
+| Право | Для чего |
 |---|---|
-| `metrika:read` | Статистика Метрики |
-| `webmaster:verify` | Индексация и поисковые запросы Вебмастера |
-| `webmaster:hostinfo` | Данные о хосте и внешних ссылках |
-| `login:info`, `login:email`, `login:avatar` | Email и аватар аккаунта Яндекса |
+| `metrika:read` | Статистика Метрики и список счётчиков |
+| `webmaster:verify` | Сайты Вебмастера, индексация и запросы |
+| `webmaster:hostinfo` | Данные о хосте и внешние ссылки |
+| `login:email`, `login:avatar` | Необязательно: почта и аватар аккаунта в шапке |
 
-Добавьте настройки в `.env`:
+## Настройки: БД и env
+
+Миграция создаёт таблицу `yandex_metrika_settings` (ClientID, Client secret и токен шифруются через `APP_KEY`). Значение из БД важнее, пустое берётся из env. Без миграции всё работает из `.env`:
 
 ```dotenv
-YANDEX_METRIKA_TOKEN=ваш_oauth_токен
-YANDEX_METRIKA_COUNTER_ID=номер_счётчика
-YANDEX_METRIKA_DEFAULT_PRESET=today
+YANDEX_METRIKA_TOKEN=
+YANDEX_METRIKA_COUNTER_ID=
 YANDEX_WEBMASTER_HOST_ID=https:example.com:443
+YANDEX_OAUTH_CLIENT_ID=
+YANDEX_OAUTH_CLIENT_SECRET=
+YANDEX_METRIKA_DEFAULT_PRESET=today
 ```
 
-`YANDEX_WEBMASTER_HOST_ID` необязателен. Если его нет и хост не сохранён на странице подключения, пакет берёт сайты аккаунта через API Вебмастера и выбирает тот, что совпадает с `APP_URL` (схема, хост и порт, `www` не учитывается). Если совпадения нет, берётся `YANDEX_WEBMASTER_HOST_ID`, а потом единственный сайт аккаунта. Автовыбор не сохраняется. Список сайтов кешируется на 5 минут. Метрика работает и без хоста.
-
-### OAuth-приложение и уведомления
-
-Вся информация об OAuth-приложении есть на странице **Подключение Яндекса**. В шапке дашборда только аккаунт и кнопка **Настройки подключения**. Если ClientID не сохранён, страница показывает `client_id` из login.yandex.ru/info для текущего токена (бейдж «из токена»). Переопределить можно через `YANDEX_OAUTH_CLIENT_ID`.
-
-Уведомления на дашборде (ошибки подключения, нехватка прав, Вебмастер не настроен) занимают одну короткую строку со ссылкой **Подключение Яндекса →**.
-
-Если на вкладке Вебмастера не хватает прав, под алертом есть два действия:
-
-- **Открыть приложение и добавить право**: открывает `https://oauth.yandex.ru/client/edit/<client_id>`.
-- **Переподключить Яндекс**: открывает экран согласия Яндекса для этого приложения и выпускает новый токен. После смены прав Яндекс отзывает старые токены. Если сохранён Client secret (см. ниже), кнопка запускает OAuth flow пакета, и токен сохраняется сам. Без него кнопка открывает страницу выпуска токена на стороне Яндекса. Тогда вставьте новый токен в `YANDEX_METRIKA_TOKEN` и выполните `php artisan config:cache`. Яндекс покажет токен на странице, если у приложения указан redirect URI `https://oauth.yandex.ru/verification_code`.
-
-### Страница «Подключение Яндекса» и настройки в БД
-
-Это необязательно: без миграции всё работает из `.env`, как раньше.
-
-```bash
-php artisan migrate
-```
-
-Миграция создаёт таблицу `yandex_metrika_settings`. В ней хранятся ClientID, Client secret и токен (шифруются через `APP_KEY`), счётчик, хост Вебмастера, права токена и дата его получения. Значение из БД важнее env. Если в БД значение пустое, берётся env.
-
-Страница **Подключение Яндекса** регистрируется в MoonShine автоматически. Отключить можно через `'connection_page' => false`. В меню её добавлять не нужно. Она открывается кнопкой **Настройки подключения** в шапке дашборда (рядом с CSV) или из алертов о нехватке прав. На самой странице есть ссылка **← Назад к Яндекс.Метрике**.
-
-Все ссылки на Яндекс открываются в новой вкладке, чтобы админка оставалась открытой. Это ссылки на приложение, его редактирование, выпуск токена, а также кнопки **Получить токен через Яндекс** и **Переподключить**. После OAuth новая вкладка возвращается на страницу подключения, её можно закрыть. Дата получения токена показывается в часовом поясе `app.timezone`.
-
-Страница разбита на шаги с номерами и статусом «готово» / «нужно сделать»:
-
-1. **Приложение Яндекса**: ссылка **Создать приложение** (oauth.yandex.ru), нужные права, Redirect URI с кнопкой **Копировать**, поля ClientID и Client secret, кнопка **Сохранить**.
-2. **Токен**: кнопка **Получить токен через Яндекс** (OAuth), активна после шага 1. Когда токен есть, видны аккаунт, токен под маской и его права. **Ввести токен вручную** — свёрнутая форма.
-3. **Счётчик и сайт**: выпадающие списки счётчика Метрики и хоста Вебмастера, активны, когда есть токен.
-
-Внизу кнопки **Проверить подключение** (свежий запрос к Метрике) и **Сбросить** (удалить настройки из БД и вернуться к env). Если значения шага пришли из env, шаг не блокируется. Значения из env видны как placeholder полей, секреты только под маской.
-
-**Счётчик Метрики** выбирается из списка счётчиков аккаунта (Management API, `management/v1/counters`): название, сайт и ID. **Хост Вебмастера** — из списка сайтов аккаунта (API Вебмастера). Оба списка кешируются на 5 минут. Первый пункт **Авто (по APP_URL): …** не сохраняет значение и показывает, что выбрано. В статусе такое значение помечено бейджем «авто».
-
-Порядок выбора счётчика: сохранённый в БД → счётчик, у которого `site` / `site2` совпадает с хостом `APP_URL` (`www` и схема не учитываются) → `YANDEX_METRIKA_COUNTER_ID` → единственный счётчик аккаунта. Для хоста порядок тот же (сравниваются схема, хост и порт). Если токена нет или API вернул ошибку, вместо списка будет текстовое поле и короткое уведомление со ссылкой на Метрику или Вебмастер. `yandex-metrika:connection:set --counter-id=... --host-id=...` работает как раньше. Адрес Management API можно поменять ключом конфига `management_api_url`.
-
-**Получить токен** работает через OAuth authorization code flow с `state` и PKCE. Кнопка запрашивает права из `oauth_scopes` и сохраняет токен в БД. Чтобы она работала:
-
-1. Сохраните ClientID и Client secret на странице или задайте `YANDEX_OAUTH_CLIENT_ID` и `YANDEX_OAUTH_CLIENT_SECRET`.
-2. В приложении на oauth.yandex.ru добавьте **Redirect URI** callback пакета (он же показан на странице):
-
-   ```
-   https://ваш-сайт/admin/yandex-analytics/oauth/callback
-   ```
-
-   `admin` — это ваш `moonshine.prefix`. Адрес `https://oauth.yandex.ru/verification_code` оставьте, если по-прежнему выпускаете токен вручную.
-3. В приложении должны быть все права из `oauth_scopes` (по умолчанию `metrika:read`, `webmaster:verify`, `webmaster:hostinfo`). Иначе Яндекс вернёт `invalid_scope`.
+**Счётчик и сайт Вебмастера** выбираются по порядку: сохранённый в БД → совпадающий с `APP_URL` (`www` не учитывается; у счётчика сравниваются `site` / `site2`, у хоста схема, хост и порт) → env → единственный в аккаунте. Автовыбор не сохраняется и помечается «авто». Оба списка берутся из API Яндекса по текущему токену и кешируются на 5 минут. Без токена или при ошибке API поле становится текстовым.
 
 Artisan:
 
 ```bash
 php artisan yandex-metrika:connection:set --client-id=... --ask-secret --counter-id=... --host-id=https:example.com:443
-php artisan yandex-metrika:connection:set --ask-token   # вставить токен вручную
+php artisan yandex-metrika:connection:set --ask-token   # ввести токен вручную
 php artisan yandex-metrika:connection:status            # значения и источники, секреты под маской
 php artisan yandex-metrika:connection:clear --force     # удалить настройки из БД, вернуться к env
 ```
 
 ## Карточки метрик
 
-На вкладке Метрики четыре сводные карточки. Набор и порядок задаёт `summary_metrics` в опубликованном конфиге. По умолчанию: визиты, просмотры, уникальные посетители, отказы. Неизвестные ключи игнорируются.
+`summary_metrics` задаёт набор и порядок карточек Метрики (по умолчанию: визиты, просмотры, уникальные посетители, отказы; неизвестные ключи игнорируются). Флаг `widgets.*` со значением `false` скрывает блок и его карточку.
 
 ```php
-'summary_metrics' => [
-    'unique_visitors',
-    'visits',
-    'pageviews',
-    'bounce_rate',
-],
+'summary_metrics' => ['unique_visitors', 'visits', 'pageviews', 'bounce_rate'],
 ```
-
-Карта `widgets` по-прежнему включает и выключает остальные блоки дашборда. Если виджет выставить в `false`, соответствующая карточка тоже скроется.
 
 ## Периоды и экспорт
 
+Пресеты: сегодня, вчера, неделя, месяц, квартал, полгода, год и свой диапазон. Сводка Вебмастера показывает текущее состояние, период применяется к поисковым запросам.
 
-Доступны пресеты «Сегодня», «Вчера», «Неделя», «Месяц», «Квартал», «Полгода», «Год» и произвольный диапазон дат. Сводка Вебмастера показывает текущее состояние сайта, выбранный период применяется к поисковым запросам.
-
-CSV-экспорт доступен авторизованным администраторам MoonShine:
-
-- `/admin/yandex-analytics/export/metrika`
-- `/admin/yandex-analytics/export/webmaster`
+CSV-экспорт для авторизованных администраторов MoonShine: `/admin/yandex-analytics/export/metrika`, `/admin/yandex-analytics/export/webmaster`.
 
 ## Skill для AI-агентов
 
-В пакет включён готовый **skill для AI-агентов**: он помогает настраивать, расширять и диагностировать дашборд. Skill намеренно входит в Composer-дистрибутив по пути `vendor/tikhomirov/moonshine-yandex-metrika/skills/moonshine-yandex-metrika/SKILL.md`.
-
-Установите [`llm/skills`](https://github.com/roxblnfk/skills) в host-приложение, чтобы обнаруживать skill в Composer-зависимостях и синхронизировать его в каталог навыков агента:
+В пакете есть skill для AI-агентов: `skills/moonshine-yandex-metrika/SKILL.md` (входит в Composer-дистрибутив). С [`llm/skills`](https://github.com/roxblnfk/skills) он подхватывается из зависимостей:
 
 ```bash
 composer require --dev llm/skills
 composer skills:init --quick
-composer skills:show
 ```
-
-Пакет `llm/skills` по умолчанию находит файлы `SKILL.md` в Composer-зависимостях. Поэтому каталог `skills/` включён в дистрибутив этого пакета — инструкции для работы с дашбордом будут доступны AI-агентам host-приложения.
 
 ## Локализация
 
-В дашборд входят переводы на **русский и английский языки**; язык выбирается по локали Laravel-приложения. Чтобы опубликовать файлы переводов для изменения в проекте:
+Русский и английский, по локали приложения. Опубликовать для правки:
 
 ```bash
 php artisan vendor:publish --tag=moonshine-yandex-metrika-lang
@@ -184,9 +139,8 @@ php artisan vendor:publish --tag=moonshine-yandex-metrika-lang
 
 - [История изменений](CHANGELOG.md)
 - [Чеклист настройки и релиза](https://github.com/tikhomirov/moonshine-yandex-metrika/blob/main/docs/PRODUCTION_CHECKLIST.md)
-- [Skill для дашборда](https://github.com/tikhomirov/moonshine-yandex-metrika/blob/main/skills/moonshine-yandex-metrika/SKILL.md)
 - [Сообщить об ошибке](https://github.com/tikhomirov/moonshine-yandex-metrika/issues)
 
 ## Лицензия
 
-MIT. Подробности — в файле [LICENSE](LICENSE).
+MIT. Подробности — в [LICENSE](LICENSE).
