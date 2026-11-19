@@ -27,7 +27,10 @@ test('package config coerces config values safely', function (): void {
     config()->set('moonshine-yandex-metrika.cache_store', ['bad']);
     config()->set('moonshine-yandex-metrika.widgets', ['export' => 1, 'account' => 'yes']);
 
-    expect(PackageConfig::string('moonshine-yandex-metrika.page_title', 'x'))->toBeString()
+    config()->set('moonshine-yandex-metrika.max_results', '9');
+
+    expect(PackageConfig::int('moonshine-yandex-metrika.max_results', 1))->toBe(9)
+        ->and(PackageConfig::string('moonshine-yandex-metrika.page_title', 'x'))->toBeString()
         ->and(PackageConfig::int('moonshine-yandex-metrika.max_results', 3))->toBeInt()
         ->and(PackageConfig::nullableString('moonshine-yandex-metrika.cache_store'))->toBeNull()
         ->and(PackageConfig::boolMap('moonshine-yandex-metrika.widgets'))->toHaveKey('export');
