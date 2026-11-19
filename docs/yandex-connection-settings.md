@@ -62,3 +62,4 @@
 - `2fcecc5` — fix: check connection resolves the probe from the container
 - `3aff7d6` — feat: connection steps without duplicate values, env values as placeholders
 - `89e2b87` — docs: connection steps and metrika counter dropdown
+- `d753186` — chore: pint and larastan fixes, tests for api lists, oauth controller and commands
