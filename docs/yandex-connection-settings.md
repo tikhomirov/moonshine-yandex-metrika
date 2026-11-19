@@ -39,4 +39,4 @@
 
 ## Коммиты
 
-- см. PR `feat/oauth-app-in-ui`
+- `1e3fa61` — feat: Yandex connection settings in the database with OAuth code flow
