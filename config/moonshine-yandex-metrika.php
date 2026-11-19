@@ -36,6 +36,19 @@ return [
     'cache_store' => env('YANDEX_METRIKA_CACHE_STORE', null),
 
     /*
+     * KPI card order on the Metrika tab. Known keys: visits, pageviews,
+     * unique_visitors, bounce_rate. Unknown keys are ignored. A widget
+     * set to false still hides the matching card; widgets also control
+     * the other dashboard blocks (chart, tables, Webmaster).
+     */
+    'summary_metrics' => [
+        'visits',
+        'pageviews',
+        'unique_visitors',
+        'bounce_rate',
+    ],
+
+    /*
      * Widgets to display on the dashboard page.
      */
     'widgets' => [

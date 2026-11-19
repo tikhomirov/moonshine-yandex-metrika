@@ -75,7 +75,23 @@ YANDEX_WEBMASTER_HOST_ID=https:example.com:443
 
 `YANDEX_WEBMASTER_HOST_ID` is required for Webmaster and must use the host format shown in Yandex Webmaster. Metrika keeps working without it.
 
+## KPI cards
+
+The Metrika tab shows four summary cards. Their set and order are controlled by `summary_metrics` in the published config. The default is visits, page views, unique visitors, bounce rate. Unknown keys are ignored.
+
+```php
+'summary_metrics' => [
+    'unique_visitors',
+    'visits',
+    'pageviews',
+    'bounce_rate',
+],
+```
+
+The `widgets` map still turns other dashboard blocks on or off. Setting a widget to `false` also hides the matching KPI card.
+
 ## Periods and exports
+
 
 Available presets: today, yesterday, week, month, quarter, half year, and year, plus a custom date range. The Webmaster summary shows the site's current state; the selected period applies to search queries.
 

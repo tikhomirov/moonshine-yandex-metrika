@@ -688,6 +688,66 @@ HTML;
     }
 
     /**
+     * KPI cards for the Metrika tab. Order and set come from
+     * config('moonshine-yandex-metrika.summary_metrics'); unknown keys are
+     * skipped. A widget flag set to false still hides the matching card.
+     *
+     * @param  array<string, bool>  $widgets
+     * @return list<array{label: string, value: string, icon: string, tone: string}>
+     */
+    protected function buildSummaryMetrics(MetrikaService $metrika, array $widgets): array
+    {
+        $definitions = [
+            'visits' => fn (): array => [
+                'label' => (string) __('moonshine-yandex-metrika::metrics.visits'),
+                'value' => number_format($metrika->totalVisits(), 0, '.', ' '),
+                'icon' => 'chart-bar',
+                'tone' => 'primary',
+            ],
+            'pageviews' => fn (): array => [
+                'label' => (string) __('moonshine-yandex-metrika::metrics.pageviews'),
+                'value' => number_format($metrika->totalPageViews(), 0, '.', ' '),
+                'icon' => 'document-chart-bar',
+                'tone' => 'success',
+            ],
+            'unique_visitors' => fn (): array => [
+                'label' => (string) __('moonshine-yandex-metrika::metrics.unique_visitors'),
+                'value' => number_format($metrika->uniqueVisitors(), 0, '.', ' '),
+                'icon' => 'chart-pie',
+                'tone' => 'info',
+            ],
+            'bounce_rate' => fn (): array => [
+                'label' => (string) __('moonshine-yandex-metrika::metrics.bounce_rate'),
+                'value' => $metrika->bounceRate().'%',
+                'icon' => 'presentation-chart-line',
+                'tone' => 'warning',
+            ],
+        ];
+
+        $order = config('moonshine-yandex-metrika.summary_metrics', array_keys($definitions));
+
+        if (! is_array($order)) {
+            $order = array_keys($definitions);
+        }
+
+        $metrics = [];
+
+        foreach ($order as $key) {
+            if (! is_string($key) || ! isset($definitions[$key])) {
+                continue;
+            }
+
+            if (! ($widgets[$key] ?? true)) {
+                continue;
+            }
+
+            $metrics[] = $definitions[$key]();
+        }
+
+        return $metrics;
+    }
+
+    /**
      * @param  array<string, bool>  $widgets
      * @return list<ComponentContract>
      */
@@ -697,43 +757,7 @@ HTML;
         int $maxRes,
     ): array {
         $components = [];
-        $summaryMetrics = [];
-
-        if ($widgets['visits'] ?? true) {
-            $summaryMetrics[] = [
-                'label' => (string) __('moonshine-yandex-metrika::metrics.visits'),
-                'value' => number_format($metrika->totalVisits(), 0, '.', ' '),
-                'icon' => 'chart-bar',
-                'tone' => 'primary',
-            ];
-        }
-
-        if ($widgets['pageviews'] ?? true) {
-            $summaryMetrics[] = [
-                'label' => (string) __('moonshine-yandex-metrika::metrics.pageviews'),
-                'value' => number_format($metrika->totalPageViews(), 0, '.', ' '),
-                'icon' => 'document-chart-bar',
-                'tone' => 'success',
-            ];
-        }
-
-        if ($widgets['unique_visitors'] ?? true) {
-            $summaryMetrics[] = [
-                'label' => (string) __('moonshine-yandex-metrika::metrics.unique_visitors'),
-                'value' => number_format($metrika->uniqueVisitors(), 0, '.', ' '),
-                'icon' => 'chart-pie',
-                'tone' => 'info',
-            ];
-        }
-
-        if ($widgets['bounce_rate'] ?? true) {
-            $summaryMetrics[] = [
-                'label' => (string) __('moonshine-yandex-metrika::metrics.bounce_rate'),
-                'value' => $metrika->bounceRate().'%',
-                'icon' => 'presentation-chart-line',
-                'tone' => 'warning',
-            ];
-        }
+        $summaryMetrics = $this->buildSummaryMetrics($metrika, $widgets);
 
         if ($summaryMetrics !== []) {
             $components[] = $this->buildCompactStats($summaryMetrics);
