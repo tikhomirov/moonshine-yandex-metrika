@@ -152,7 +152,7 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
         $tabs ??= $this->additionalAnalyticsTabs();
 
         foreach ($tabs as $tab) {
-            if (($tab['id'] ?? '') === $tabId) {
+            if ($tab['id'] === $tabId) {
                 return $tab;
             }
         }
@@ -644,7 +644,7 @@ HTML;
 
             $href = $pageUrl.'?'.http_build_query($this->pageQuery($period, $tab['id']));
             $tone = $tab['id'] === $activeTab ? 'btn-primary' : 'btn-secondary';
-            $icon = $this->tabIconSvg($tab['icon'] ?? 'square-2-stack');
+            $icon = $this->tabIconSvg($tab['icon']);
             $tabsHtml .= '<a href="'.e($href).'" class="btn ym-tab '.$tone.'">'
                 .$icon
                 .'<span>'.e($tab['label']).'</span>'
@@ -1023,7 +1023,9 @@ HTML;
             $chartData,
         ));
         $label = e(__('moonshine-yandex-metrika::metrics.visits'));
-        $theme = view('moonshine-yandex-metrika::components.chart-theme')->render();
+        /** @var view-string $themeView */
+        $themeView = 'moonshine-yandex-metrika::components.chart-theme';
+        $theme = view($themeView)->render();
 
         return FlexibleRender::make(<<<HTML
 <div x-ignore style="position: relative; height: 300px;">

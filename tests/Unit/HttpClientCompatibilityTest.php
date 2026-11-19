@@ -17,8 +17,8 @@ beforeEach(function () {
 });
 
 test('services survive connection errors with the installed guzzle', function () {
-    expect((new MetrikaService())->request(['metrics' => 'ym:s:visits']))->toBeNull()
-        ->and((new WebmasterService())->summary())->toBeNull()
-        ->and((new WebmasterService())->popularQueriesReport(5)['rows'])->toBe([])
-        ->and((new YandexAccountService())->profile())->toBeNull();
+    expect((new MetrikaService)->request(['metrics' => 'ym:s:visits']))->toBeNull()
+        ->and((new WebmasterService)->summary())->toBeNull()
+        ->and((new WebmasterService)->popularQueriesReport(5)['rows'])->toBe([])
+        ->and((new YandexAccountService)->profile())->toBeNull();
 });

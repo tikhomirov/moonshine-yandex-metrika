@@ -173,7 +173,7 @@ class YandexSettings
      */
     public function save(array $values): void
     {
-        $record = $this->record() ?? new YandexMetrikaSetting();
+        $record = $this->record() ?? new YandexMetrikaSetting;
         $tokenChanged = false;
 
         foreach (array_keys(self::CONFIG_KEYS) as $key) {

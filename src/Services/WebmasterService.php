@@ -6,6 +6,7 @@ namespace Tikhomirov\MoonshineYandexMetrika\Services;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
+use GuzzleHttp\Psr7\Query;
 use Illuminate\Support\Facades\Cache;
 use Tikhomirov\MoonshineYandexMetrika\Support\DatePeriod;
 use Tikhomirov\MoonshineYandexMetrika\Support\YandexSettings;
@@ -507,7 +508,7 @@ class WebmasterService
         try {
             $response = $this->http->get($path, [
                 // Вебмастер ждёт query_indicator=A&query_indicator=B, а не query_indicator[0]=A.
-                'query' => \GuzzleHttp\Psr7\Query::build($this->flattenQuery($query)),
+                'query' => Query::build($this->flattenQuery($query)),
             ]);
             /** @var array<string, mixed>|null $data */
             $data = json_decode($response->getBody()->getContents(), true);

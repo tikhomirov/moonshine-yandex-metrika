@@ -9,7 +9,7 @@ use Tikhomirov\MoonshineYandexMetrika\Http\Controllers\ExportController;
 
 $prefix = trim((string) config('moonshine.prefix', 'admin'), '/');
 
-Route::middleware(array_filter(['moonshine', Authenticate::class]))
+Route::middleware(['moonshine', Authenticate::class])
     ->prefix($prefix)
     ->group(function (): void {
         Route::get('yandex-analytics/export/metrika', [ExportController::class, 'metrika'])

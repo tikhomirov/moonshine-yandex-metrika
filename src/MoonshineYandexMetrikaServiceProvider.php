@@ -86,11 +86,11 @@ class MoonshineYandexMetrikaServiceProvider extends ServiceProvider
         $registry = $this->app->make(AnalyticsTabRegistry::class);
 
         if (! $registry->has(MetrikaDashboardPage::TAB_METRIKA)) {
-            $registry->register(new MetrikaDashboardTab());
+            $registry->register(new MetrikaDashboardTab);
         }
 
         if (! $registry->has(MetrikaDashboardPage::TAB_WEBMASTER)) {
-            $registry->register(new WebmasterDashboardTab());
+            $registry->register(new WebmasterDashboardTab);
         }
     }
 }

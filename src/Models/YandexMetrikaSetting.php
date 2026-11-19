@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tikhomirov\MoonshineYandexMetrika\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 /**
  * Единственная строка с настройками подключения к Яндексу.
@@ -14,8 +15,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $token
  * @property string|null $counter_id
  * @property string|null $host_id
- * @property list<string>|null $scopes
- * @property \Illuminate\Support\Carbon|null $token_obtained_at
+ * @property array<int, string>|null $scopes
+ * @property Carbon|null $token_obtained_at
  */
 class YandexMetrikaSetting extends Model
 {

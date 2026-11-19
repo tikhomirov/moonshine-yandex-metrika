@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use MoonShine\UI\Components\Layout\Div;
 use Tikhomirov\MoonshineYandexMetrika\Components\LineChartComponent;
 use Tikhomirov\MoonshineYandexMetrika\Pages\MetrikaDashboardPage;
 use Tikhomirov\MoonshineYandexMetrika\Services\ConnectionProbe;
@@ -10,6 +11,7 @@ use Tikhomirov\MoonshineYandexMetrika\Services\MetrikaService;
 use Tikhomirov\MoonshineYandexMetrika\Services\WebmasterService;
 use Tikhomirov\MoonshineYandexMetrika\Services\YandexAccountService;
 use Tikhomirov\MoonshineYandexMetrika\Support\DatePeriod;
+use Tikhomirov\MoonshineYandexMetrika\Support\YandexSettings;
 
 beforeEach(function () {
     $this->app->instance(MetrikaService::class, new class extends MetrikaService
@@ -165,7 +167,7 @@ test('metrika dashboard wraps all page components in one space-elements containe
 
     $root = $components->first();
 
-    expect($root)->toBeInstanceOf(\MoonShine\UI\Components\Layout\Div::class)
+    expect($root)->toBeInstanceOf(Div::class)
         ->and((string) $root->getAttribute('class'))->toContain('space-elements');
 });
 
@@ -378,7 +380,7 @@ test('scope alert links to the apps list and the connection page when the app is
 
 test('reconnect uses the package oauth flow when the client secret is stored', function () {
     $this->artisan('migrate', ['--force' => true])->run();
-    $settings = app(\Tikhomirov\MoonshineYandexMetrika\Support\YandexSettings::class);
+    $settings = app(YandexSettings::class);
     $settings->refresh();
     $settings->save(['client_id' => '4760187d81bc4b7799476b42b5103713', 'client_secret' => 'super-secret-value']);
 

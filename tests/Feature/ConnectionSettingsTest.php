@@ -6,6 +6,7 @@ use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Http\Request;
 use Illuminate\Session\ArraySessionHandler;
 use Illuminate\Session\Store;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tikhomirov\MoonshineYandexMetrika\Http\Controllers\ConnectionController;
@@ -213,7 +214,7 @@ test('connection page shows app, sources, masked secrets, missing scopes and red
 test('token obtained date is shown in the app timezone', function () {
     config()->set('app.timezone', 'Europe/Moscow');
 
-    expect(YandexSettings::formatDate(\Illuminate\Support\Carbon::parse('2026-11-19 18:59:37', 'UTC')))
+    expect(YandexSettings::formatDate(Carbon::parse('2026-11-19 18:59:37', 'UTC')))
         ->toBe('19.11.2026 21:59 (Europe/Moscow)');
 });
 
