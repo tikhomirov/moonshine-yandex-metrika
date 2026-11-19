@@ -9,6 +9,7 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Cache;
 use Tikhomirov\MoonshineYandexMetrika\Support\DatePeriod;
+use Tikhomirov\MoonshineYandexMetrika\Support\YandexSettings;
 
 class MetrikaService
 {
@@ -32,8 +33,9 @@ class MetrikaService
 
     public function __construct()
     {
-        $this->token = (string) config('moonshine-yandex-metrika.token');
-        $this->counterId = (string) config('moonshine-yandex-metrika.counter_id');
+        $settings = app(YandexSettings::class);
+        $this->token = $settings->token();
+        $this->counterId = $settings->counterId();
         $this->days = (int) config('moonshine-yandex-metrika.days', 0);
         $this->cacheTtl = (int) config('moonshine-yandex-metrika.cache_ttl', 3600);
         $this->cacheStore = config('moonshine-yandex-metrika.cache_store');

@@ -8,6 +8,7 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Cache;
 use Tikhomirov\MoonshineYandexMetrika\Support\DatePeriod;
+use Tikhomirov\MoonshineYandexMetrika\Support\YandexSettings;
 
 /**
  * Проверяет доступ к API и объясняет ошибку (пакет иначе глотает исключения).
@@ -22,8 +23,9 @@ final class ConnectionProbe
 
     public function check(): ConnectionProbeResult
     {
-        $token = mb_trim((string) config('moonshine-yandex-metrika.token'));
-        $counterId = mb_trim((string) config('moonshine-yandex-metrika.counter_id'));
+        $settings = app(YandexSettings::class);
+        $token = $settings->token();
+        $counterId = $settings->counterId();
 
         if ($token === '' || $counterId === '') {
             $missing = [];
@@ -37,7 +39,8 @@ final class ConnectionProbe
             }
 
             return ConnectionProbeResult::notConfigured(
-                'Не заполнены переменные окружения: '.implode(', ', $missing).'.',
+                'Не заполнены переменные окружения: '.implode(', ', $missing)
+                    .'. Их можно задать и на странице «Подключение Яндекса».',
             );
         }
 

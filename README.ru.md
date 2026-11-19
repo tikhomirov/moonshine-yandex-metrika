@@ -82,7 +82,55 @@ YANDEX_WEBMASTER_HOST_ID=https:example.com:443
 Если на вкладке Вебмастера не хватает прав, под алертом есть два действия:
 
 - **Открыть приложение и добавить право**: открывает `https://oauth.yandex.ru/client/edit/<client_id>`.
-- **Переподключить Яндекс**: открывает экран согласия Яндекса для этого приложения и выпускает новый токен. После смены прав Яндекс отзывает старые токены. Пакет берёт токен только из `YANDEX_METRIKA_TOKEN`, поэтому вставьте новый токен в `.env` и выполните `php artisan config:cache`. С redirect URI `https://oauth.yandex.ru/verification_code` Яндекс покажет токен на странице.
+- **Переподключить Яндекс**: открывает экран согласия Яндекса для этого приложения и выпускает новый токен. После смены прав Яндекс отзывает старые токены. Если сохранён Client secret (см. ниже), кнопка запускает OAuth flow пакета, и токен сохраняется сам. Без него кнопка открывает страницу выпуска токена на стороне Яндекса. Тогда вставьте новый токен в `YANDEX_METRIKA_TOKEN` и выполните `php artisan config:cache`. Яндекс покажет токен на странице, если у приложения указан redirect URI `https://oauth.yandex.ru/verification_code`.
+
+### Страница «Подключение Яндекса» и настройки в БД
+
+Это необязательно: без миграции всё работает из `.env`, как раньше.
+
+```bash
+php artisan migrate
+```
+
+Миграция создаёт таблицу `yandex_metrika_settings`. В ней хранятся ClientID, Client secret и токен (шифруются через `APP_KEY`), счётчик, хост Вебмастера, права токена и дата его получения. Значение из БД важнее env. Если в БД значение пустое, берётся env.
+
+Страница **Подключение Яндекса** регистрируется в MoonShine автоматически. Отключить можно через `'connection_page' => false`. При желании добавьте её в меню:
+
+```php
+use Tikhomirov\MoonshineYandexMetrika\Pages\YandexConnectionPage;
+
+MenuItem::make(YandexConnectionPage::class, 'Подключение Яндекса');
+```
+
+На странице видно:
+
+- OAuth-приложение: ClientID со ссылкой на oauth.yandex.ru;
+- источник каждого значения (БД или env);
+- секреты под маской;
+- выданные и недостающие права.
+
+Там же есть форма настроек, кнопка **Получить токен** (или **Переподключить**, если токен уже есть) и кнопка **Очистить и вернуться к env**.
+
+**Получить токен** работает через OAuth authorization code flow с `state` и PKCE. Кнопка запрашивает права из `oauth_scopes` и сохраняет токен в БД. Чтобы она работала:
+
+1. Сохраните ClientID и Client secret на странице или задайте `YANDEX_OAUTH_CLIENT_ID` и `YANDEX_OAUTH_CLIENT_SECRET`.
+2. В приложении на oauth.yandex.ru добавьте **Redirect URI** callback пакета (он же показан на странице):
+
+   ```
+   https://ваш-сайт/admin/yandex-analytics/oauth/callback
+   ```
+
+   `admin` — это ваш `moonshine.prefix`. Адрес `https://oauth.yandex.ru/verification_code` оставьте, если по-прежнему выпускаете токен вручную.
+3. В приложении должны быть все права из `oauth_scopes` (по умолчанию `metrika:read`, `webmaster:verify`, `webmaster:hostinfo`). Иначе Яндекс вернёт `invalid_scope`.
+
+Artisan:
+
+```bash
+php artisan yandex-metrika:connection:set --client-id=... --ask-secret --counter-id=... --host-id=https:example.com:443
+php artisan yandex-metrika:connection:set --ask-token   # вставить токен вручную
+php artisan yandex-metrika:connection:status            # значения и источники, секреты под маской
+php artisan yandex-metrika:connection:clear --force     # удалить настройки из БД, вернуться к env
+```
 
 ## Карточки метрик
 

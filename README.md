@@ -82,7 +82,48 @@ The dashboard header shows the `client_id` of the OAuth app that issued the toke
 When a Webmaster scope is missing, the alert offers two actions:
 
 - **Open the app and add the scope**: opens `https://oauth.yandex.ru/client/edit/<client_id>`.
-- **Reconnect Yandex**: opens the Yandex consent screen for this app and issues a new token. Yandex revokes old tokens when app scopes change. The package reads the token only from `YANDEX_METRIKA_TOKEN`, so put the new token into `.env` and run `php artisan config:cache`. With the redirect URI `https://oauth.yandex.ru/verification_code`, Yandex shows the token on the page.
+- **Reconnect Yandex**: opens the Yandex consent screen for this app and issues a new token. Yandex revokes old tokens when app scopes change. With the Client secret saved (see below), the button runs the package OAuth flow and saves the token automatically. Without it, the button opens Yandex's token page: put the new token into `YANDEX_METRIKA_TOKEN` and run `php artisan config:cache` (Yandex shows the token when the app has the redirect URI `https://oauth.yandex.ru/verification_code`).
+
+### Yandex connection page and settings in the database
+
+Optional. Without the migration everything works from `.env` as before.
+
+```bash
+php artisan migrate
+```
+
+The migration creates `yandex_metrika_settings`. It stores ClientID, Client secret and the token (encrypted with `APP_KEY`), the counter ID, the Webmaster host, the token scopes and the date it was obtained. A value saved in the database takes priority over env; an empty value falls back to env.
+
+The **Yandex connection** page is registered in MoonShine automatically (disable with `'connection_page' => false`). Add it to the menu if you want:
+
+```php
+use Tikhomirov\MoonshineYandexMetrika\Pages\YandexConnectionPage;
+
+MenuItem::make(YandexConnectionPage::class, 'Yandex connection');
+```
+
+The page shows the OAuth app (ClientID with a link to oauth.yandex.ru), where each value comes from (DB or env), masked secrets, granted and missing scopes, and has the settings form, a **Get token** / **Reconnect** button and **Clear and fall back to env**.
+
+**Get token** uses the OAuth authorization code flow with `state` and PKCE. It requests the scopes from `oauth_scopes` and saves the token to the database. For it to work:
+
+1. Save ClientID and Client secret on the page (or set `YANDEX_OAUTH_CLIENT_ID` / `YANDEX_OAUTH_CLIENT_SECRET`).
+2. In the app on oauth.yandex.ru add this **Redirect URI** (the package callback, shown on the page too):
+
+   ```
+   https://your-site.example/admin/yandex-analytics/oauth/callback
+   ```
+
+   `admin` is your `moonshine.prefix`. Keep `https://oauth.yandex.ru/verification_code` if you still issue tokens by hand.
+3. The app must have every scope from `oauth_scopes` (by default `metrika:read`, `webmaster:verify`, `webmaster:hostinfo`), otherwise Yandex returns `invalid_scope`.
+
+Artisan:
+
+```bash
+php artisan yandex-metrika:connection:set --client-id=... --ask-secret --counter-id=... --host-id=https:example.com:443
+php artisan yandex-metrika:connection:set --ask-token   # paste a token by hand
+php artisan yandex-metrika:connection:status            # values and sources, secrets masked
+php artisan yandex-metrika:connection:clear --force     # delete DB settings, back to env
+```
 
 ## KPI cards
 

@@ -8,6 +8,7 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Cache;
 use Tikhomirov\MoonshineYandexMetrika\Support\YandexOAuthApp;
+use Tikhomirov\MoonshineYandexMetrika\Support\YandexSettings;
 
 /**
  * Профиль OAuth-пользователя Яндекса (email + аватар).
@@ -26,7 +27,7 @@ class YandexAccountService
 
     public function __construct()
     {
-        $this->token = (string) config('moonshine-yandex-metrika.token');
+        $this->token = app(YandexSettings::class)->token();
         $this->cacheTtl = (int) config('moonshine-yandex-metrika.cache_ttl', 3600);
         $this->cacheStore = config('moonshine-yandex-metrika.cache_store');
         $this->infoUrl = (string) config(
@@ -75,11 +76,11 @@ class YandexAccountService
     }
 
     /**
-     * OAuth-приложение токена: client_id из конфига или из ответа login.yandex.ru/info.
+     * OAuth-приложение токена: client_id из настроек (БД/env) или из ответа login.yandex.ru/info.
      */
     public function oauthApp(): YandexOAuthApp
     {
-        $configured = mb_trim((string) config('moonshine-yandex-metrika.oauth_client_id'));
+        $configured = app(YandexSettings::class)->clientId();
 
         if ($configured !== '') {
             return new YandexOAuthApp($configured);

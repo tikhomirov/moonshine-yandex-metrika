@@ -27,6 +27,8 @@ use Tikhomirov\MoonshineYandexMetrika\Support\AnalyticsTabRegistry;
 use Tikhomirov\MoonshineYandexMetrika\Support\DatePeriod;
 use Tikhomirov\MoonshineYandexMetrika\Support\WrapsPageComponentsInSpaceElements;
 use Tikhomirov\MoonshineYandexMetrika\Support\YandexOAuthApp;
+use Tikhomirov\MoonshineYandexMetrika\Support\YandexOAuthFlow;
+use Tikhomirov\MoonshineYandexMetrika\Support\YandexSettings;
 
 class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
 {
@@ -984,16 +986,27 @@ HTML;
         $links = '<a href="'.e($app->editUrl()).'" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm">'
             .e($label).'</a>';
 
-        $tokenUrl = $app->tokenUrl();
+        // С Client secret и таблицей настроек: свой OAuth flow, токен сохранится в БД.
+        // Иначе: выпуск токена на стороне Яндекса и подсказка про YANDEX_METRIKA_TOKEN.
+        $flowReady = app(YandexSettings::class)->tableExists() && app(YandexOAuthFlow::class)->canStart();
+        $tokenUrl = $flowReady ? route('moonshine-yandex-metrika.oauth.redirect') : $app->tokenUrl();
 
         if ($tokenUrl !== null) {
-            $links .= '<a href="'.e($tokenUrl).'" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm">'
+            $links .= '<a href="'.e($tokenUrl).'"'.($flowReady ? '' : ' target="_blank" rel="noopener noreferrer"')
+                .' class="btn btn-primary btn-sm">'
                 .e(__('moonshine-yandex-metrika::metrics.oauth_reconnect')).'</a>';
+        }
+
+        if (config('moonshine-yandex-metrika.connection_page', true)) {
+            $links .= '<a href="'.e(app(YandexConnectionPage::class)->getUrl()).'" class="btn btn-secondary btn-sm">'
+                .e(__('moonshine-yandex-metrika::metrics.oauth_open_connection')).'</a>';
         }
 
         $hint = $app->isKnown()
             ? __('moonshine-yandex-metrika::metrics.oauth_app').': '.$app->clientId.'. '
-                .__('moonshine-yandex-metrika::metrics.oauth_reconnect_hint')
+                .__($flowReady
+                    ? 'moonshine-yandex-metrika::metrics.oauth_reconnect_flow_hint'
+                    : 'moonshine-yandex-metrika::metrics.oauth_reconnect_hint')
             : __('moonshine-yandex-metrika::metrics.oauth_client_id_unknown_hint');
 
         return FlexibleRender::make(

@@ -361,3 +361,20 @@ test('scope alert asks for YANDEX_OAUTH_CLIENT_ID when the app is unknown', func
         ->and($html)->toContain('YANDEX_OAUTH_CLIENT_ID')
         ->and($html)->not->toContain('Reconnect Yandex');
 });
+
+test('reconnect uses the package oauth flow when the client secret is stored', function () {
+    $this->artisan('migrate', ['--force' => true])->run();
+    $settings = app(\Tikhomirov\MoonshineYandexMetrika\Support\YandexSettings::class);
+    $settings->refresh();
+    $settings->save(['client_id' => '4760187d81bc4b7799476b42b5103713', 'client_secret' => 'super-secret-value']);
+
+    bindOAuthClientProfile('4760187d81bc4b7799476b42b5103713');
+    bindWebmasterWithoutLinksScope();
+
+    $html = renderWebmasterTabHtml();
+
+    expect($html)->toContain('/admin/yandex-analytics/oauth/redirect')
+        ->and($html)->not->toContain('response_type=token')
+        ->and($html)->toContain('Yandex connection')
+        ->and($html)->not->toContain('super-secret-value');
+});

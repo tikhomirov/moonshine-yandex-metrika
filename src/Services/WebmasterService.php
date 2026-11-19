@@ -8,6 +8,7 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Cache;
 use Tikhomirov\MoonshineYandexMetrika\Support\DatePeriod;
+use Tikhomirov\MoonshineYandexMetrika\Support\YandexSettings;
 
 /**
  * Клиент API Яндекс.Вебмастера (summary, запросы, внешние ссылки).
@@ -32,10 +33,11 @@ class WebmasterService
 
     public function __construct()
     {
-        $this->token = (string) config('moonshine-yandex-metrika.token');
+        $settings = app(YandexSettings::class);
+        $this->token = $settings->token();
         $userId = config('moonshine-yandex-metrika.webmaster.user_id');
         $this->userId = $userId !== null && $userId !== '' ? (string) $userId : null;
-        $this->hostId = (string) config('moonshine-yandex-metrika.webmaster.host_id', '');
+        $this->hostId = $settings->hostId();
         $this->cacheTtl = (int) config('moonshine-yandex-metrika.cache_ttl', 3600);
         $this->cacheStore = config('moonshine-yandex-metrika.cache_store');
         $this->apiUrl = rtrim((string) config(
@@ -340,7 +342,7 @@ class WebmasterService
      */
     private function get(string $path, array $query = []): ?array
     {
-        $cacheKey = 'yandex_webmaster_'.md5($path.'|'.serialize($query).'|'.$this->hostId);
+        $cacheKey = 'yandex_webmaster_'.md5($path.'|'.serialize($query).'|'.$this->hostId.'|'.sha1($this->token));
 
         $store = $this->cacheTtl > 0
             ? ($this->cacheStore ? Cache::store($this->cacheStore) : Cache::store())

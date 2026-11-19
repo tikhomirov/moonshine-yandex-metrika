@@ -12,6 +12,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The dashboard shows which Yandex OAuth app issued the token: its `client_id` next to the account, linked to the app page on oauth.yandex.ru
 - Missing-scope alerts on the Webmaster tab now offer actions: open the app's edit page to add the scope, and "Reconnect Yandex" to issue a new token
 - Optional `oauth_client_id` config key (`YANDEX_OAUTH_CLIENT_ID`); by default the `client_id` is read from login.yandex.ru/info for the current token
+- Settings in the database (optional migration `yandex_metrika_settings`): ClientID, Client secret and token (encrypted), counter ID, host ID, token scopes and the date it was obtained. Database values take priority over env; all services read them through `Support\YandexSettings`
+- "Yandex connection" MoonShine page (registered automatically, `connection_page` config key): app link, value source (DB or env), masked secrets, granted and missing scopes, settings form, reset to env
+- "Get token" / "Reconnect" buttons: OAuth authorization code flow with `state` and PKCE; the callback route `/{moonshine.prefix}/yandex-analytics/oauth/callback` saves the token
+- Artisan commands `yandex-metrika:connection:set`, `yandex-metrika:connection:status`, `yandex-metrika:connection:clear`
+
+### Compatibility
+
+- Without the migration and without saved settings everything works from env as before
 
 ## [1.3.0] - 2026-11-19
 
