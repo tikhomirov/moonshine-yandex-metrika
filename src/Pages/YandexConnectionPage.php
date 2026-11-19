@@ -99,6 +99,7 @@ class YandexConnectionPage extends Page
             .'.ym-step__title{font-size:1.125rem;font-weight:600;}'
             .'.ym-step--locked .ym-step__body{opacity:.5;}'
             .'.ym-step__body{display:flex;flex-direction:column;gap:1rem;}'
+            .'.ym-step__body>fieldset{border:0;margin:0;padding:0;min-width:0;display:flex;flex-direction:column;gap:1rem;}'
             .'.ym-step__kv th{font-weight:500;opacity:.75;padding-right:1rem;white-space:nowrap;text-align:left;vertical-align:top;}'
             .'.ym-step__kv td{vertical-align:top;padding:.15rem 0;}'
             .'.ym-step__actions{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;}'
@@ -134,30 +135,25 @@ class YandexConnectionPage extends Page
             (array) config('moonshine-yandex-metrika.oauth_scopes', []),
         ));
 
-        $clientId = $settings->clientId();
-        $clientIdSource = $this->sourceBadge($settings->source('client_id'));
-
-        if ($clientId === '' && $app->isKnown()) {
-            $clientId = (string) $app->clientId;
-            $clientIdSource = '<span class="badge badge-secondary">'.e(__('moonshine-yandex-metrika::metrics.connection_source_token')).'</span>';
-        }
-
-        $secret = $settings->clientSecret();
-
         $kv = $this->kv([
             [__('moonshine-yandex-metrika::metrics.connection_required_scopes'), $scopes, ''],
             [__('moonshine-yandex-metrika::metrics.connection_redirect_uri'), $this->copyable($flow->callbackUrl()), ''],
-            [__('moonshine-yandex-metrika::metrics.connection_key_client_id'), $this->valueOrDash($clientId, $app->isKnown() ? $app->appUrl() : null), $clientIdSource],
-            [__('moonshine-yandex-metrika::metrics.connection_key_client_secret'), $this->valueOrDash($secret === '' ? '' : YandexSettings::mask($secret)), $this->sourceBadge($settings->source('client_secret'))],
         ]);
 
-        $keep = (string) __('moonshine-yandex-metrika::metrics.connection_secret_keep');
+        // Значения из env или из токена видны как placeholder, секрет — только маской.
+        $clientIdHint = $settings->clientId() !== '' ? $settings->clientId() : (string) ($app->clientId ?? '');
+        $secret = $settings->clientSecret();
+
         $form = FormBuilder::make(route('moonshine-yandex-metrika.connection.save'))
             ->name('yandex-connection-app')
             ->fields([
-                Text::make(__('moonshine-yandex-metrika::metrics.connection_key_client_id'), 'client_id'),
+                Text::make(__('moonshine-yandex-metrika::metrics.connection_key_client_id'), 'client_id')
+                    ->customAttributes(['placeholder' => $clientIdHint]),
                 Password::make(__('moonshine-yandex-metrika::metrics.connection_key_client_secret'), 'client_secret')
-                    ->customAttributes(['placeholder' => $keep, 'autocomplete' => 'new-password']),
+                    ->customAttributes([
+                        'placeholder' => $secret === '' ? '' : YandexSettings::mask($secret),
+                        'autocomplete' => 'new-password',
+                    ]),
             ])
             ->fill(['client_id' => $settings->record()?->client_id])
             ->submit(__('moonshine-yandex-metrika::metrics.connection_save'));
@@ -262,10 +258,22 @@ class YandexConnectionPage extends Page
             ])
             ->submit(__('moonshine-yandex-metrika::metrics.connection_save'));
 
-        $parts[] = $this->kv([
-            [__('moonshine-yandex-metrika::metrics.connection_key_counter_id'), $this->valueOrDash($metrika->counterId()), $this->sourceBadge($metrika->counterSource())],
-            [__('moonshine-yandex-metrika::metrics.connection_key_host_id'), $this->valueOrDash($webmaster->hostId()), $this->sourceBadge($webmaster->hostSource())],
-        ]);
+        // Статус: что используется сейчас и откуда (БД, env, авто).
+        $status = [];
+
+        foreach ([
+            'connection_key_counter_id' => [$metrika->counterId(), $metrika->counterSource()],
+            'connection_key_host_id' => [$webmaster->hostId(), $webmaster->hostSource()],
+        ] as $key => [$value, $source]) {
+            if ($value !== '') {
+                $status[] = [__('moonshine-yandex-metrika::metrics.'.$key), '<code>'.e($value).'</code>', $this->sourceBadge($source)];
+            }
+        }
+
+        if ($status !== []) {
+            $parts[] = $this->kv($status);
+        }
+
         $parts[] = (string) $form->render();
 
         $done = $metrika->counterId() !== '' && $webmaster->hostId() !== '';
@@ -324,7 +332,10 @@ class YandexConnectionPage extends Page
         $counters = $this->counters();
 
         if ($counters === null) {
-            return Text::make($label, 'counter_id')->customAttributes(['inputmode' => 'numeric']);
+            return Text::make($label, 'counter_id')->customAttributes([
+                'inputmode' => 'numeric',
+                'placeholder' => app(MetrikaService::class)->counterId(),
+            ]);
         }
 
         $options = [];
@@ -349,7 +360,9 @@ class YandexConnectionPage extends Page
         $hosts = $this->hosts();
 
         if ($hosts === null) {
-            return Text::make($label, 'host_id')->customAttributes(['placeholder' => 'https:example.com:443']);
+            return Text::make($label, 'host_id')->customAttributes([
+                'placeholder' => app(WebmasterService::class)->hostId() ?: 'https:example.com:443',
+            ]);
         }
 
         $options = [];

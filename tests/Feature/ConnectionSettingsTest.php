@@ -198,7 +198,7 @@ test('connection page shows app, sources, masked secrets, missing scopes and red
         ->and($html)->not->toContain('db-token-value-1234')
         ->and($html)->not->toContain('super-secret-value')
         ->and($html)->toContain('badge-success')
-        ->and($html)->toContain('badge-info')
+        ->and($html)->toContain('placeholder="'.YM_CLIENT_ID.'"')
         ->and($html)->toContain('webmaster:hostinfo')
         ->and($html)->toContain('/admin/yandex-analytics/oauth/callback')
         ->and($html)->toContain('/admin/yandex-analytics/oauth/redirect')
@@ -571,7 +571,8 @@ test('env values do not lock the counter and site step without a token in the da
 
     expect($html)->toContain('ym-step ym-step-2 ym-step--locked')
         ->and($html)->not->toContain('ym-step ym-step-3 ym-step--locked')
-        ->and($html)->toMatch('#<input[^>]*name="counter_id"#');
+        ->and($html)->toMatch('#<input[^>]*name="counter_id"#')
+        ->and($html)->toContain('<code>12345678</code> <span class="badge badge-info">env</span>');
 });
 
 test('check connection action runs a fresh probe and returns to the connection page', function () {
