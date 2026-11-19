@@ -25,4 +25,4 @@
 
 ## Коммиты
 
-- см. PR `feat/oauth-app-in-ui`
+- `d689d4d` — feat: show Yandex OAuth app and scope fix actions in the dashboard
