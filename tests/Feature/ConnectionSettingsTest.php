@@ -575,7 +575,7 @@ test('env values do not lock the counter and site step without a token in the da
 });
 
 test('check connection action runs a fresh probe and returns to the connection page', function () {
-    $response = app(ConnectionController::class)->check(app(\Tikhomirov\MoonshineYandexMetrika\Services\ConnectionProbe::class));
+    $response = app(ConnectionController::class)->check();
 
     expect($response->getStatusCode())->toBe(302)
         ->and($response->getTargetUrl())->toEndWith('/admin/page/yandex-connection-page')

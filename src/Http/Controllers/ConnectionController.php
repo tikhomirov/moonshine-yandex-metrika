@@ -55,9 +55,9 @@ final class ConnectionController extends Controller
     /**
      * «Проверить подключение»: свежий запрос к Метрике без кеша проверки.
      */
-    public function check(ConnectionProbe $probe): RedirectResponse
+    public function check(): RedirectResponse
     {
-        $result = $probe->fresh();
+        $result = app(ConnectionProbe::class)->fresh();
 
         return $result->isOk()
             ? $this->back(__('moonshine-yandex-metrika::metrics.connection_check_ok'), ToastType::SUCCESS)
