@@ -20,5 +20,6 @@
     <php>
         <env name="APP_ENV" value="testing"/>
         <env name="CACHE_STORE" value="array"/>
+        <env name="PCOV_DIRECTORY" value="src"/>
     </php>
 </phpunit>

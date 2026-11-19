@@ -1,0 +1,15 @@
+{
+    "date_from": "2026-11-01T00:00:00+03:00",
+    "date_to": "2026-11-08T23:59:59+03:00",
+    "queries": [
+        {
+            "query_text": "famfi demo",
+            "indicators": {
+                "TOTAL_SHOWS": 100,
+                "TOTAL_CLICKS": 12,
+                "AVG_SHOW_POSITION": 3.5,
+                "AVG_CLICK_POSITION": 2.1
+            }
+        }
+    ]
+}

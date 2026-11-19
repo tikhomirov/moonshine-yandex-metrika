@@ -1,0 +1,9 @@
+{
+    "hosts": [
+        {
+            "host_id": "https:demo.example:443",
+            "unicode_host_url": "https://demo.example/",
+            "verified": true
+        }
+    ]
+}

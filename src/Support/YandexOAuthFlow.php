@@ -82,15 +82,21 @@ class YandexOAuthFlow
                 'code_verifier' => $pending['verifier'],
             ]);
 
-        $token = (string) $response->json('access_token', '');
+        $tokenValue = $response->json('access_token');
+        $token = is_string($tokenValue) ? $tokenValue : '';
 
         if (! $response->successful() || $token === '') {
-            $error = (string) ($response->json('error_description') ?? $response->json('error') ?? 'HTTP '.$response->status());
+            $errorDescription = $response->json('error_description');
+            $errorCode = $response->json('error');
+            $error = is_string($errorDescription)
+                ? $errorDescription
+                : (is_string($errorCode) ? $errorCode : 'HTTP '.$response->status());
 
             throw new RuntimeException((string) __('moonshine-yandex-metrika::metrics.oauth_exchange_failed', ['error' => $error]));
         }
 
-        $scope = mb_trim((string) $response->json('scope', ''));
+        $scopeValue = $response->json('scope', '');
+        $scope = mb_trim(is_string($scopeValue) ? $scopeValue : '');
         // Если Яндекс не вернул scope, выданы ровно запрошенные права (иначе была бы ошибка invalid_scope).
         $scopes = $scope !== ''
             ? array_values(array_filter(preg_split('/\s+/', $scope) ?: []))

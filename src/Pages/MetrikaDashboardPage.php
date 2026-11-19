@@ -25,6 +25,7 @@ use Tikhomirov\MoonshineYandexMetrika\Services\YandexAccountService;
 use Tikhomirov\MoonshineYandexMetrika\Support\AnalyticsTabAttributes;
 use Tikhomirov\MoonshineYandexMetrika\Support\AnalyticsTabRegistry;
 use Tikhomirov\MoonshineYandexMetrika\Support\DatePeriod;
+use Tikhomirov\MoonshineYandexMetrika\Support\PackageConfig;
 use Tikhomirov\MoonshineYandexMetrika\Support\WrapsPageComponentsInSpaceElements;
 use Tikhomirov\MoonshineYandexMetrika\Support\YandexOAuthApp;
 use Tikhomirov\MoonshineYandexMetrika\Support\YandexOAuthFlow;
@@ -34,9 +35,9 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
 {
     use WrapsPageComponentsInSpaceElements;
 
-    public const TAB_METRIKA = 'metrika';
+    public const string TAB_METRIKA = 'metrika';
 
-    public const TAB_WEBMASTER = 'webmaster';
+    public const string TAB_WEBMASTER = 'webmaster';
 
     protected string $pageIcon = 'presentation-chart-bar';
 
@@ -55,6 +56,21 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
         $this->account = app(YandexAccountService::class);
     }
 
+    protected function metrikaService(): MetrikaService
+    {
+        return $this->metrika ?? app(MetrikaService::class);
+    }
+
+    protected function webmasterService(): WebmasterService
+    {
+        return $this->webmaster ?? app(WebmasterService::class);
+    }
+
+    protected function accountService(): YandexAccountService
+    {
+        return $this->account ?? app(YandexAccountService::class);
+    }
+
     public function getBreadcrumbs(): array
     {
         return ['#' => $this->getTitle()];
@@ -62,7 +78,7 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
 
     public function getTitle(): string
     {
-        return (string) config('moonshine-yandex-metrika.page_title', 'Яндекс.Метрика');
+        return PackageConfig::string('moonshine-yandex-metrika.page_title', 'Яндекс.Метрика');
     }
 
     /**
@@ -76,8 +92,8 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
             $probe = app(ConnectionProbe::class)->check();
             $period = $this->resolvePeriod();
             $tab = $this->resolveTab();
-            $widgets = config('moonshine-yandex-metrika.widgets', []);
-            $maxRes = (int) config('moonshine-yandex-metrika.max_results', 10);
+            $widgets = PackageConfig::boolMap('moonshine-yandex-metrika.widgets');
+            $maxRes = PackageConfig::int('moonshine-yandex-metrika.max_results', 10);
 
             // Корень content.blade.php не добавляет .space-elements (см. moonshine#2108).
             // Оборачиваем весь components(), включая хуки и тулбар.
@@ -99,15 +115,18 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
      */
     protected function analyticsTabs(): array
     {
+        /** @var list<array{id: string, label: string, icon: string, enabled: bool}> $tabs */
         $tabs = [];
 
         foreach (app(AnalyticsTabRegistry::class)->all() as $registered) {
-            $tabs[] = [
+            /** @var array{id: string, label: string, icon: string, enabled: bool} $entry */
+            $entry = [
                 'id' => $registered->id(),
                 'label' => $registered->label(),
                 'icon' => $registered->icon(),
                 'enabled' => $registered->enabled(),
             ];
+            $tabs[] = $entry;
         }
 
         return [...$tabs, ...$this->additionalAnalyticsTabs()];
@@ -119,6 +138,18 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
      * Для period/CSV в шапке предпочтительно {@see AnalyticsTabRegistry}; здесь — опциональные ключи
      * uses_period, requires_yandex, export_csv_url, export_csv_label.
      *
+     * @return list<array{
+     *     id: string,
+     *     label: string,
+     *     icon: string,
+     *     enabled: bool,
+     *     uses_period?: bool,
+     *     requires_yandex?: bool,
+     *     export_csv_url?: string|callable(DatePeriod): (?string),
+     *     export_csv_label?: string,
+     * }>
+     */
+    /**
      * @return list<array{
      *     id: string,
      *     label: string,
@@ -146,6 +177,16 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
      *     export_csv_url?: string|callable(DatePeriod): (?string),
      *     export_csv_label?: string,
      * }>|null  $tabs
+     * @return array{
+     *     id: string,
+     *     label: string,
+     *     icon: string,
+     *     enabled: bool,
+     *     uses_period?: bool,
+     *     requires_yandex?: bool,
+     *     export_csv_url?: string|callable(DatePeriod): (?string),
+     *     export_csv_label?: string,
+     * }|null
      */
     protected function findAdditionalAnalyticsTab(string $tabId, ?array $tabs = null): ?array
     {
@@ -196,7 +237,7 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
             }
         }
 
-        $exportLabel = $legacy['export_csv_label'] ?? ($exportUrl !== null ? (string) ($legacy['label'] ?? '').' CSV' : null);
+        $exportLabel = $legacy['export_csv_label'] ?? ($exportUrl !== null ? $legacy['label'].' CSV' : null);
 
         return new AnalyticsTabAttributes(
             usesPeriod: (bool) ($legacy['uses_period'] ?? false),
@@ -218,7 +259,9 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
             return $requested;
         }
 
-        return $enabled[0] ?? self::TAB_METRIKA;
+        $first = $enabled[0] ?? self::TAB_METRIKA;
+
+        return is_string($first) ? $first : self::TAB_METRIKA;
     }
 
     /**
@@ -260,7 +303,7 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
     public function renderMetrikaTab(DatePeriod $period, array $widgets, int $maxResults): array
     {
         return $this->buildMetrikaSection(
-            $this->metrika->forPeriod($period),
+            $this->metrikaService()->forPeriod($period),
             $widgets,
             $maxResults,
         );
@@ -275,7 +318,7 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
     public function renderWebmasterTab(DatePeriod $period, array $widgets, int $maxResults): array
     {
         return $this->buildWebmasterSection(
-            $this->webmaster->forPeriod($period),
+            $this->webmasterService()->forPeriod($period),
             $period,
             $widgets,
             $maxResults,
@@ -320,7 +363,7 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
     protected function resolvePeriod(): DatePeriod
     {
         $request = request();
-        $defaultPreset = (string) config('moonshine-yandex-metrika.default_preset', DatePeriod::PRESET_TODAY);
+        $defaultPreset = PackageConfig::string('moonshine-yandex-metrika.default_preset', DatePeriod::PRESET_TODAY);
 
         return DatePeriod::fromRequest(
             $request->query('preset', $defaultPreset),
@@ -350,8 +393,9 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
         $attributes = $this->resolveTabAttributes($tab, $period);
         $yandexReady = $probe->isOk();
 
-        $account = $yandexReady && config('moonshine-yandex-metrika.widgets.account', true)
-            ? $this->account->profile()
+        $widgetFlags = PackageConfig::boolMap('moonshine-yandex-metrika.widgets');
+        $account = $yandexReady && ($widgetFlags['account'] ?? true)
+            ? $this->accountService()->profile()
             : null;
 
         $accountHtml = '';

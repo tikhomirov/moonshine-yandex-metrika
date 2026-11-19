@@ -177,9 +177,9 @@ final readonly class DatePeriod
         $year = $today->year;
 
         if ($today->month <= 6) {
-            return Carbon::create($year, 1, 1)->startOfDay();
+            return Carbon::createFromDate($year, 1, 1)->startOfDay();
         }
 
-        return Carbon::create($year, 7, 1)->startOfDay();
+        return Carbon::createFromDate($year, 7, 1)->startOfDay();
     }
 }

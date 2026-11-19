@@ -2,57 +2,19 @@
 
 declare(strict_types=1);
 
-use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ConnectException;
-use GuzzleHttp\Handler\MockHandler;
-use GuzzleHttp\HandlerStack;
-use GuzzleHttp\Middleware;
 use GuzzleHttp\Psr7\Request as PsrRequest;
-use GuzzleHttp\Psr7\Response;
 use Illuminate\Http\Request;
 use Illuminate\Session\ArraySessionHandler;
 use Illuminate\Session\Store;
 use Illuminate\Support\Facades\Http;
-use Psr\Http\Message\RequestInterface;
 use Tikhomirov\MoonshineYandexMetrika\Http\Controllers\ConnectionController;
 use Tikhomirov\MoonshineYandexMetrika\Services\MetrikaService;
 use Tikhomirov\MoonshineYandexMetrika\Services\WebmasterService;
 use Tikhomirov\MoonshineYandexMetrika\Support\YandexOAuthFlow;
 use Tikhomirov\MoonshineYandexMetrika\Support\YandexSettings;
 
-/**
- * Подменяет Guzzle-клиент сервиса на MockHandler: без сети, с историей запросов.
- *
- * @param  list<Response|Throwable>  $responses
- * @param  array<int, array{request: RequestInterface}>  $history
- */
-function mockServiceHttp(object $service, array $responses, array &$history): void
-{
-    $stack = HandlerStack::create(new MockHandler($responses));
-    $stack->push(Middleware::history($history));
-
-    $property = new ReflectionProperty($service, 'http');
-    $property->setValue($service, new Client(['handler' => $stack, 'base_uri' => 'https://api.example.test/v4/']));
-}
-
-function apiJson(array $data): Response
-{
-    return new Response(200, ['Content-Type' => 'application/json'], (string) json_encode($data));
-}
-
-function controllerRequest(string $uri, array $query = []): Request
-{
-    $request = Request::create($uri, 'GET', $query);
-    $request->setLaravelSession(new Store('test', new ArraySessionHandler(10)));
-
-    return $request;
-}
-
-function migrateSettingsTable(): void
-{
-    test()->artisan('migrate', ['--force' => true])->run();
-    app(YandexSettings::class)->refresh();
-}
+covers(ConnectionController::class, MetrikaService::class, WebmasterService::class);
 
 test('metrika counters are loaded from the management api once and cached', function () {
     $history = [];

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 return [
     'visits' => 'Visits',
     'pageviews' => 'Page Views',

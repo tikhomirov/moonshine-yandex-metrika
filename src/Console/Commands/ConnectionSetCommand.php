@@ -39,11 +39,13 @@ final class ConnectionSetCommand extends Command
         }
 
         if ($this->option('ask-secret')) {
-            $values['client_secret'] = (string) $this->secret('Client secret');
+            $secret = $this->secret('Client secret');
+            $values['client_secret'] = is_string($secret) ? $secret : '';
         }
 
         if ($this->option('ask-token')) {
-            $values['token'] = (string) $this->secret('OAuth token');
+            $token = $this->secret('OAuth token');
+            $values['token'] = is_string($token) ? $token : '';
         }
 
         if ($values === []) {

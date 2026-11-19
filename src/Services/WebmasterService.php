@@ -9,6 +9,7 @@ use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Psr7\Query;
 use Illuminate\Support\Facades\Cache;
 use Tikhomirov\MoonshineYandexMetrika\Support\DatePeriod;
+use Tikhomirov\MoonshineYandexMetrika\Support\PackageConfig;
 use Tikhomirov\MoonshineYandexMetrika\Support\YandexSettings;
 
 /**
@@ -43,10 +44,10 @@ class WebmasterService
         $settings = app(YandexSettings::class);
         $this->token = $settings->token();
         $userId = config('moonshine-yandex-metrika.webmaster.user_id');
-        $this->userId = $userId !== null && $userId !== '' ? (string) $userId : null;
-        $this->cacheTtl = (int) config('moonshine-yandex-metrika.cache_ttl', 3600);
-        $this->cacheStore = config('moonshine-yandex-metrika.cache_store');
-        $this->apiUrl = rtrim((string) config(
+        $this->userId = is_string($userId) && $userId !== '' ? $userId : (is_numeric($userId) ? (string) $userId : null);
+        $this->cacheTtl = PackageConfig::int('moonshine-yandex-metrika.cache_ttl', 3600);
+        $this->cacheStore = PackageConfig::cacheStore();
+        $this->apiUrl = rtrim(PackageConfig::string(
             'moonshine-yandex-metrika.webmaster.api_url',
             'https://api.webmaster.yandex.net/v4',
         ), '/');
@@ -128,9 +129,11 @@ class WebmasterService
                 continue;
             }
 
+            $url = $host['unicode_host_url'] ?? $host['ascii_host_url'] ?? $host['host_id'];
+            $hostId = is_scalar($host['host_id']) ? (string) $host['host_id'] : '';
             $hosts[] = [
-                'host_id' => (string) $host['host_id'],
-                'url' => rtrim((string) ($host['unicode_host_url'] ?? $host['ascii_host_url'] ?? $host['host_id']), '/'),
+                'host_id' => $hostId,
+                'url' => rtrim(is_string($url) ? $url : $hostId, '/'),
                 'verified' => (bool) ($host['verified'] ?? false),
             ];
         }
@@ -202,7 +205,7 @@ class WebmasterService
         }
 
         $hostIds = array_column($this->hosts() ?? [], 'host_id');
-        $match = self::matchHostByUrl($hostIds, (string) config('app.url'));
+        $match = self::matchHostByUrl($hostIds, PackageConfig::string('app.url'));
 
         if ($match !== null) {
             return [$match, YandexSettings::SOURCE_AUTO];
@@ -248,19 +251,25 @@ class WebmasterService
             return null;
         }
 
+        $siteProblems = $data['site_problems'] ?? [];
+        $siteProblemsArray = is_array($siteProblems) ? $siteProblems : [];
         $problems = [
-            'FATAL' => (int) ($data['site_problems']['FATAL'] ?? 0),
-            'CRITICAL' => (int) ($data['site_problems']['CRITICAL'] ?? 0),
-            'POSSIBLE_PROBLEM' => (int) ($data['site_problems']['POSSIBLE_PROBLEM'] ?? 0),
-            'RECOMMENDATION' => (int) ($data['site_problems']['RECOMMENDATION'] ?? 0),
+            'FATAL' => is_numeric($siteProblemsArray['FATAL'] ?? null) ? (int) $siteProblemsArray['FATAL'] : 0,
+            'CRITICAL' => is_numeric($siteProblemsArray['CRITICAL'] ?? null) ? (int) $siteProblemsArray['CRITICAL'] : 0,
+            'POSSIBLE_PROBLEM' => is_numeric($siteProblemsArray['POSSIBLE_PROBLEM'] ?? null) ? (int) $siteProblemsArray['POSSIBLE_PROBLEM'] : 0,
+            'RECOMMENDATION' => is_numeric($siteProblemsArray['RECOMMENDATION'] ?? null) ? (int) $siteProblemsArray['RECOMMENDATION'] : 0,
         ];
 
+        $searchable = $data['searchable_pages_count'] ?? 0;
+        $excluded = $data['excluded_pages_count'] ?? 0;
+        $sqi = $data['sqi'] ?? null;
+
         return [
-            'searchable_pages_count' => (int) ($data['searchable_pages_count'] ?? 0),
-            'excluded_pages_count' => (int) ($data['excluded_pages_count'] ?? 0),
+            'searchable_pages_count' => is_numeric($searchable) ? (int) $searchable : 0,
+            'excluded_pages_count' => is_numeric($excluded) ? (int) $excluded : 0,
             'site_problems' => $problems,
             'problems_total' => array_sum($problems),
-            'sqi' => isset($data['sqi']) ? (int) $data['sqi'] : null,
+            'sqi' => is_numeric($sqi) ? (int) $sqi : null,
         ];
     }
 
@@ -288,15 +297,19 @@ class WebmasterService
             return null;
         }
 
-        $series = $data['indicators']['LINKS_TOTAL_COUNT'] ?? [];
+        $indicators = $data['indicators'] ?? [];
+        $indicatorsArray = is_array($indicators) ? $indicators : [];
+        $series = $indicatorsArray['LINKS_TOTAL_COUNT'] ?? [];
 
         if (! is_array($series) || $series === []) {
             return 0;
         }
 
         $last = end($series);
+        $lastRow = is_array($last) ? $last : [];
+        $value = $lastRow['value'] ?? 0;
 
-        return (int) ($last['value'] ?? 0);
+        return is_numeric($value) ? (int) $value : 0;
     }
 
     /**
@@ -428,23 +441,28 @@ class WebmasterService
 
             $indicators = is_array($row['indicators'] ?? null) ? $row['indicators'] : [];
 
+            $shows = $indicators['TOTAL_SHOWS'] ?? 0;
+            $clicks = $indicators['TOTAL_CLICKS'] ?? 0;
+            $avgShow = $indicators['AVG_SHOW_POSITION'] ?? null;
+            $avgClick = $indicators['AVG_CLICK_POSITION'] ?? null;
+
             $result[] = [
-                'query' => (string) ($row['query_text'] ?? ''),
-                'shows' => (int) ($indicators['TOTAL_SHOWS'] ?? 0),
-                'clicks' => (int) ($indicators['TOTAL_CLICKS'] ?? 0),
-                'avg_show_position' => isset($indicators['AVG_SHOW_POSITION'])
-                    ? round((float) $indicators['AVG_SHOW_POSITION'], 1)
-                    : null,
-                'avg_click_position' => isset($indicators['AVG_CLICK_POSITION'])
-                    ? round((float) $indicators['AVG_CLICK_POSITION'], 1)
-                    : null,
+                'query' => is_string($row['query_text'] ?? null) ? $row['query_text'] : '',
+                'shows' => is_numeric($shows) ? (int) $shows : 0,
+                'clicks' => is_numeric($clicks) ? (int) $clicks : 0,
+                'avg_show_position' => is_numeric($avgShow) ? round((float) $avgShow, 1) : null,
+                'avg_click_position' => is_numeric($avgClick) ? round((float) $avgClick, 1) : null,
             ];
         }
 
         return [
             'rows' => $result,
-            'date_from' => isset($data['date_from']) ? substr((string) $data['date_from'], 0, 10) : null,
-            'date_to' => isset($data['date_to']) ? substr((string) $data['date_to'], 0, 10) : null,
+            'date_from' => isset($data['date_from']) && is_scalar($data['date_from'])
+                ? substr((string) $data['date_from'], 0, 10)
+                : null,
+            'date_to' => isset($data['date_to']) && is_scalar($data['date_to'])
+                ? substr((string) $data['date_to'], 0, 10)
+                : null,
         ];
     }
 
@@ -474,7 +492,13 @@ class WebmasterService
             return null;
         }
 
-        $this->userId = (string) $data['user_id'];
+        $this->userId = is_string($data['user_id']) || is_numeric($data['user_id'])
+            ? (string) $data['user_id']
+            : null;
+
+        if ($this->userId === null) {
+            return null;
+        }
 
         return $this->userId;
     }
@@ -537,12 +561,15 @@ class WebmasterService
 
         foreach ($query as $key => $value) {
             if (is_array($value)) {
-                $flat[$key] = array_map(static fn (mixed $item): string => (string) $item, array_values($value));
+                $flat[$key] = array_map(
+                    static fn (mixed $item): string => is_scalar($item) ? (string) $item : '',
+                    array_values($value),
+                );
 
                 continue;
             }
 
-            $flat[$key] = (string) $value;
+            $flat[$key] = is_scalar($value) ? (string) $value : '';
         }
 
         return $flat;

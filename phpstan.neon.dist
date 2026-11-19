@@ -1,0 +1,20 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    bootstrapFiles:
+        - phpstan-bootstrap.php
+    level: 9
+    paths:
+        - src
+        - config
+        - routes
+        - database
+    tmpDir: var/phpstan
+    reportUnmatchedIgnoredErrors: false
+
+    ignoreErrors:
+        # Laravel packages legitimately call env() in published config files (documented Larastan false positive).
+        -
+            identifier: larastan.noEnvCallsOutsideOfConfig
+            path: config/*

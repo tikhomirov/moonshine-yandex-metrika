@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 return [
     /*
      * Yandex OAuth token (Metrika + Webmaster + login scopes).

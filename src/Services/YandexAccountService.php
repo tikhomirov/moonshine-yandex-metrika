@@ -7,6 +7,7 @@ namespace Tikhomirov\MoonshineYandexMetrika\Services;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Cache;
+use Tikhomirov\MoonshineYandexMetrika\Support\PackageConfig;
 use Tikhomirov\MoonshineYandexMetrika\Support\YandexOAuthApp;
 use Tikhomirov\MoonshineYandexMetrika\Support\YandexSettings;
 
@@ -28,9 +29,9 @@ class YandexAccountService
     public function __construct()
     {
         $this->token = app(YandexSettings::class)->token();
-        $this->cacheTtl = (int) config('moonshine-yandex-metrika.cache_ttl', 3600);
-        $this->cacheStore = config('moonshine-yandex-metrika.cache_store');
-        $this->infoUrl = (string) config(
+        $this->cacheTtl = PackageConfig::int('moonshine-yandex-metrika.cache_ttl', 3600);
+        $this->cacheStore = PackageConfig::cacheStore();
+        $this->infoUrl = PackageConfig::string(
             'moonshine-yandex-metrika.login_info_url',
             'https://login.yandex.ru/info',
         );
@@ -62,16 +63,20 @@ class YandexAccountService
         $avatarId = $payload['default_avatar_id'] ?? null;
         $avatarEmpty = (bool) ($payload['is_avatar_empty'] ?? true);
 
+        $emails = $payload['emails'] ?? null;
+        $firstEmail = is_array($emails) && isset($emails[0]) && is_string($emails[0]) ? $emails[0] : null;
+        $defaultEmail = $payload['default_email'] ?? null;
+
         return [
-            'id' => isset($payload['id']) ? (string) $payload['id'] : null,
-            'login' => isset($payload['login']) ? (string) $payload['login'] : null,
-            'email' => isset($payload['default_email'])
-                ? (string) $payload['default_email']
-                : (isset($payload['emails'][0]) ? (string) $payload['emails'][0] : null),
+            'id' => isset($payload['id']) && is_scalar($payload['id']) ? (string) $payload['id'] : null,
+            'login' => isset($payload['login']) && is_string($payload['login']) ? $payload['login'] : null,
+            'email' => is_string($defaultEmail)
+                ? $defaultEmail
+                : $firstEmail,
             'avatar_url' => (! $avatarEmpty && is_string($avatarId) && $avatarId !== '')
                 ? 'https://avatars.yandex.net/get-yapic/'.$avatarId.'/islands-200'
                 : null,
-            'client_id' => isset($payload['client_id']) ? (string) $payload['client_id'] : null,
+            'client_id' => isset($payload['client_id']) && is_scalar($payload['client_id']) ? (string) $payload['client_id'] : null,
         ];
     }
 
@@ -86,7 +91,9 @@ class YandexAccountService
             return new YandexOAuthApp($configured);
         }
 
-        return new YandexOAuthApp($this->profile()['client_id'] ?? null);
+        $profile = $this->profile();
+
+        return new YandexOAuthApp($profile['client_id'] ?? null);
     }
 
     /**
@@ -122,9 +129,11 @@ class YandexAccountService
 
         $store = $this->cacheStore ? Cache::store($this->cacheStore) : Cache::store();
 
-        /** @var array<string, mixed>|null $cached */
-        $cached = $store->remember($key, $this->cacheTtl, $callback);
+        return $store->remember($key, $this->cacheTtl, static function () use ($callback): ?array {
+            /** @var array<string, mixed>|null $value */
+            $value = $callback();
 
-        return $cached;
+            return $value;
+        });
     }
 }
