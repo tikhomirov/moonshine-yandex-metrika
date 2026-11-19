@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- README cover and screenshots moved to `docs/images/`; screenshots retaken in English
+- Default branch is `master`; the Tests badge and CI workflows follow it
+- Removed stale task notes and unused screenshots from `docs/`
+
+
 ## [1.4.0] - 2026-11-19
 
 ### Added

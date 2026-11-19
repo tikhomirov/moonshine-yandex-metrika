@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/tikhomirov/moonshine-yandex-metrika/main/.github/cover.png" alt="MoonShine Yandex Metrika" width="100%">
+  <img src="https://raw.githubusercontent.com/tikhomirov/moonshine-yandex-metrika/master/docs/images/cover.png" alt="MoonShine Yandex Metrika" width="100%">
 </p>
 
 <p align="center">
@@ -7,7 +7,7 @@
   <img src="https://img.shields.io/badge/PHP-8.4%2B-777BB4?style=for-the-badge&logo=php&logoColor=white" alt="PHP 8.4+">
   <img src="https://img.shields.io/badge/Laravel-12%20%7C%2013-FF2D20?style=for-the-badge&logo=laravel&logoColor=white" alt="Laravel 12 | 13">
   <img src="https://img.shields.io/badge/MoonShine-5.x-6C4AB6?style=for-the-badge" alt="MoonShine 5.x">
-  <a href="https://github.com/tikhomirov/moonshine-yandex-metrika/actions/workflows/tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/tikhomirov/moonshine-yandex-metrika/tests.yml?branch=main&style=for-the-badge&label=tests&logo=github" alt="Тесты"></a>
+  <a href="https://github.com/tikhomirov/moonshine-yandex-metrika/actions/workflows/tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/tikhomirov/moonshine-yandex-metrika/tests.yml?branch=master&style=for-the-badge&label=tests&logo=github" alt="Тесты"></a>
 </p>
 
 <p align="center">
@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/tikhomirov/moonshine-yandex-metrika/main/art/dashboard-preview.jpg" alt="Дашборд MoonShine со вкладками Яндекс.Метрики и Вебмастера, фильтрами периода, KPI и графиком визитов" width="100%">
+  <img src="https://raw.githubusercontent.com/tikhomirov/moonshine-yandex-metrika/master/docs/images/dashboard-preview.jpg" alt="Дашборд MoonShine со вкладками Яндекс.Метрики и Вебмастера, фильтрами периода, KPI и графиком визитов" width="100%">
 </p>
 
 ## Возможности
@@ -56,7 +56,7 @@ MenuItem::make(MetrikaDashboardPage::class, 'Яндекс.Метрика');
 ## Подключение Яндекса
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/tikhomirov/moonshine-yandex-metrika/main/art/connection-steps.jpg" alt="Страница «Подключение Яндекса»: шаги приложения, токена, счётчика и сайта" width="80%">
+  <img src="https://raw.githubusercontent.com/tikhomirov/moonshine-yandex-metrika/master/docs/images/connection-steps.jpg" alt="Страница «Подключение Яндекса»: шаги приложения, токена, счётчика и сайта" width="80%">
 </p>
 
 1. **Приложение Яндекса.** Нажмите **Создать приложение** (oauth.yandex.ru), добавьте права из таблицы ниже и Redirect URI со страницы, сохраните ClientID и Client secret.
@@ -138,7 +138,6 @@ php artisan vendor:publish --tag=moonshine-yandex-metrika-lang
 ## Дополнительно
 
 - [История изменений](CHANGELOG.md)
-- [Чеклист настройки и релиза](https://github.com/tikhomirov/moonshine-yandex-metrika/blob/main/docs/PRODUCTION_CHECKLIST.md)
 - [Сообщить об ошибке](https://github.com/tikhomirov/moonshine-yandex-metrika/issues)
 
 ## Лицензия

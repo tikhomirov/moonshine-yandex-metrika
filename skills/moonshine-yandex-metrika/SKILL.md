@@ -32,7 +32,7 @@ Agent playbook for `tikhomirov/moonshine-yandex-metrika`.
 | `config/moonshine-yandex-metrika.php` | Config keys |
 | `routes/web.php` | CSV export routes |
 | `resources/lang`, `resources/views` | i18n + Blade |
-| `docs/` | OAuth screenshots, release checklist (not in Packagist dist) |
+| `docs/images/` | README cover and screenshots (not in Packagist dist) |
 | `skills/` | This skill (**shipped in Packagist dist**) |
 
 Composer auto-discovers `MoonshineYandexMetrikaServiceProvider`.
@@ -116,10 +116,10 @@ Before tag:
 ```bash
 composer validate --strict
 composer test
-git archive --format=tar HEAD | tar -t | head -100   # no tests/docs/skills
+git archive --format=tar HEAD | tar -t | head -100   # no tests/docs, skills present
 ```
 
-See `docs/PRODUCTION_CHECKLIST.md`. Bump `CHANGELOG.md`, tag `vX.Y.Z`, push tags for Packagist.
+Bump `CHANGELOG.md`, tag `vX.Y.Z`, push tags for Packagist.
 
 ## Do / don't
 
@@ -131,6 +131,5 @@ See `docs/PRODUCTION_CHECKLIST.md`. Bump `CHANGELOG.md`, tag `vX.Y.Z`, push tags
 
 ## Related reading
 
-- Package `README.md` — install + OAuth + extension examples
-- `docs/PRODUCTION_CHECKLIST.md` — release gate
+- Package `README.md` — install, OAuth connection, configuration
 - Host app (FamFi): `docs/ADMIN_PANEL.md`, `App\MoonShine\Pages\MetrikaDashboardPage`

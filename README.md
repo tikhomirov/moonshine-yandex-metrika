@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/tikhomirov/moonshine-yandex-metrika/main/.github/cover.png" alt="MoonShine Yandex Metrika" width="100%">
+  <img src="https://raw.githubusercontent.com/tikhomirov/moonshine-yandex-metrika/master/docs/images/cover.png" alt="MoonShine Yandex Metrika" width="100%">
 </p>
 
 <p align="center">
@@ -7,7 +7,7 @@
   <img src="https://img.shields.io/badge/PHP-8.4%2B-777BB4?style=for-the-badge&logo=php&logoColor=white" alt="PHP 8.4+">
   <img src="https://img.shields.io/badge/Laravel-12%20%7C%2013-FF2D20?style=for-the-badge&logo=laravel&logoColor=white" alt="Laravel 12 | 13">
   <img src="https://img.shields.io/badge/MoonShine-5.x-6C4AB6?style=for-the-badge" alt="MoonShine 5.x">
-  <a href="https://github.com/tikhomirov/moonshine-yandex-metrika/actions/workflows/tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/tikhomirov/moonshine-yandex-metrika/tests.yml?branch=main&style=for-the-badge&label=tests&logo=github" alt="Tests"></a>
+  <a href="https://github.com/tikhomirov/moonshine-yandex-metrika/actions/workflows/tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/tikhomirov/moonshine-yandex-metrika/tests.yml?branch=master&style=for-the-badge&label=tests&logo=github" alt="Tests"></a>
 </p>
 
 <p align="center">
@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/tikhomirov/moonshine-yandex-metrika/main/art/dashboard-preview.jpg" alt="MoonShine dashboard with Yandex Metrika and Webmaster tabs, period filters, KPI cards and a visits chart" width="100%">
+  <img src="https://raw.githubusercontent.com/tikhomirov/moonshine-yandex-metrika/master/docs/images/dashboard-preview.jpg" alt="MoonShine dashboard with Yandex Metrika and Webmaster tabs, period filters, KPI cards and a visits chart" width="100%">
 </p>
 
 ## Features
@@ -56,7 +56,7 @@ The **Yandex connection** page is registered automatically and opens with the **
 ## Connecting Yandex
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/tikhomirov/moonshine-yandex-metrika/main/art/connection-steps.jpg" alt="Yandex connection page: app, token, counter and site steps" width="80%">
+  <img src="https://raw.githubusercontent.com/tikhomirov/moonshine-yandex-metrika/master/docs/images/connection-steps.jpg" alt="Yandex connection page: app, token, counter and site steps" width="80%">
 </p>
 
 1. **Yandex app.** Click **Create app** (oauth.yandex.ru), add the scopes below and the Redirect URI shown on the page, then save ClientID and Client secret.
@@ -138,7 +138,6 @@ php artisan vendor:publish --tag=moonshine-yandex-metrika-lang
 ## More information
 
 - [Changelog](CHANGELOG.md)
-- [Production checklist](https://github.com/tikhomirov/moonshine-yandex-metrika/blob/main/docs/PRODUCTION_CHECKLIST.md)
 - [Report an issue](https://github.com/tikhomirov/moonshine-yandex-metrika/issues)
 
 ## License

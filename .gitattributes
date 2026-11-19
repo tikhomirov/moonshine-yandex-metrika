@@ -9,6 +9,7 @@
 /composer.lock         export-ignore
 /tests/                export-ignore
 /docs/                 export-ignore
+# docs/images/ (cover and README screenshots) is included in /docs/
 # skills/ stays in the Packagist dist so host-app agents can load the playbook.
 
 # Keep line endings consistent for source files.
