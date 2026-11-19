@@ -541,6 +541,26 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
   :root.dark .ym-stat--success .ym-stat__icon { background:rgba(22,163,74,.22); }
   :root.dark .ym-stat--info .ym-stat__icon { background:rgba(8,145,178,.22); }
   :root.dark .ym-stat--warning .ym-stat__icon { background:rgba(217,119,6,.24); }
+  :root.dark .ym-stat,
+  .dark .ym-stat {
+    background:var(--mushrooms-panel, var(--ms-cm-base-default, #18181b));
+    color:var(--mushrooms-ink, var(--ms-cm-base-text, #fafafa));
+    border-color:var(--mushrooms-line-strong, var(--ms-cm-base-stroke, #3f3f46));
+    box-shadow:none;
+  }
+  :root.dark .ym-toolbar__period,
+  .dark .ym-toolbar__period {
+    background:var(--mushrooms-panel, var(--ms-cm-base-default, #18181b));
+    color:var(--mushrooms-ink, var(--ms-cm-base-text, #fafafa));
+    border-color:var(--mushrooms-line-strong, var(--ms-cm-base-stroke, #3f3f46));
+    box-shadow:none;
+  }
+  :root.dark .ym-toolbar__period input[type="date"].ym-date,
+  .dark .ym-toolbar__period input[type="date"].ym-date {
+    background:var(--mushrooms-surface-muted, var(--ms-cm-base-default, #1f1f23));
+    border-color:var(--mushrooms-line-strong, var(--ms-cm-base-stroke, #3f3f46));
+    color:var(--mushrooms-ink, var(--ms-cm-base-text, #fafafa));
+  }
 </style>
 <div class="ym-toolbar">
   <div class="ym-toolbar__top">
