@@ -24,6 +24,9 @@ Route::middleware(array_filter(['moonshine', Authenticate::class]))
         Route::post('yandex-analytics/connection/clear', [ConnectionController::class, 'clear'])
             ->name('moonshine-yandex-metrika.connection.clear');
 
+        Route::post('yandex-analytics/connection/check', [ConnectionController::class, 'check'])
+            ->name('moonshine-yandex-metrika.connection.check');
+
         Route::get('yandex-analytics/oauth/redirect', [ConnectionController::class, 'redirect'])
             ->name('moonshine-yandex-metrika.oauth.redirect');
 

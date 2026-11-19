@@ -21,11 +21,21 @@ final class ConnectionProbe
 
     private const int SUCCESS_TTL = 300;
 
+    /**
+     * Проверка без кеша (кнопка «Проверить подключение»).
+     */
+    public function fresh(): ConnectionProbeResult
+    {
+        Cache::store(config('moonshine-yandex-metrika.cache_store'))->forget(self::CACHE_KEY);
+
+        return $this->check();
+    }
+
     public function check(): ConnectionProbeResult
     {
         $settings = app(YandexSettings::class);
         $token = $settings->token();
-        $counterId = $settings->counterId();
+        $counterId = app(MetrikaService::class)->counterId();
 
         if ($token === '' || $counterId === '') {
             $missing = [];

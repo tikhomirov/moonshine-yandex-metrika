@@ -124,6 +124,11 @@ return [
     'api_url' => 'https://api-metrika.yandex.net/stat/v1/data',
 
     /*
+     * Yandex Metrika Management API (list of counters for the connection page).
+     */
+    'management_api_url' => 'https://api-metrika.yandex.net/management/v1',
+
+    /*
      * Yandex Login info endpoint (email + avatar).
      */
     'login_info_url' => 'https://login.yandex.ru/info',

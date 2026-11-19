@@ -10,7 +10,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tikhomirov\MoonshineYandexMetrika\Http\Controllers\ConnectionController;
 use Tikhomirov\MoonshineYandexMetrika\Pages\YandexConnectionPage;
+use Tikhomirov\MoonshineYandexMetrika\Services\MetrikaService;
 use Tikhomirov\MoonshineYandexMetrika\Services\WebmasterService;
+use Tikhomirov\MoonshineYandexMetrika\Services\YandexAccountService;
 use Tikhomirov\MoonshineYandexMetrika\Support\YandexOAuthFlow;
 use Tikhomirov\MoonshineYandexMetrika\Support\YandexSettings;
 
@@ -44,6 +46,50 @@ function bindWebmasterHosts(?array $hosts): WebmasterService
     app()->instance(WebmasterService::class, $service);
 
     return $service;
+}
+
+/**
+ * @param  list<array{id: string, name: string, site: string, sites: list<string>}>|null  $counters
+ */
+function bindMetrikaCounters(?array $counters): MetrikaService
+{
+    $service = new class($counters) extends MetrikaService
+    {
+        public function __construct(private readonly ?array $fakeCounters)
+        {
+            parent::__construct();
+        }
+
+        public function counters(): ?array
+        {
+            return $this->fakeCounters;
+        }
+    };
+
+    app()->instance(MetrikaService::class, $service);
+
+    return $service;
+}
+
+function demoCounters(): array
+{
+    return [
+        ['id' => '11111111', 'name' => 'Shop', 'site' => 'shop.example', 'sites' => ['shop.example']],
+        ['id' => '22222222', 'name' => 'Demo', 'site' => 'demo.example', 'sites' => ['demo.example', 'www.demo.example']],
+    ];
+}
+
+function bindAccountProfile(): void
+{
+    app()->instance(YandexAccountService::class, new class extends YandexAccountService
+    {
+        public function __construct() {}
+
+        public function profile(): ?array
+        {
+            return ['id' => '1', 'login' => 'owner', 'email' => 'owner@example.com', 'avatar_url' => null, 'client_id' => null];
+        }
+    });
 }
 
 function demoHosts(): array
@@ -361,7 +407,7 @@ test('connection page offers the account sites in a select', function () {
         ->and($html)->toContain('value="https:demo.example:443"')
         ->and($html)->toContain('https://other.example')
         ->and($html)->toContain('Auto (by APP_URL): https://demo.example')
-        ->and($html)->toContain('badge-warning')
+        ->and($html)->toContain('badge-primary')
         ->and($html)->not->toContain('Could not load Webmaster sites');
 });
 
@@ -375,4 +421,163 @@ test('connection page falls back to a text field and a short notice when sites a
         ->and($html)->toContain('href="https://webmaster.yandex.ru/sites/"')
         ->and($html)->toMatch('#<input[^>]*name="host_id"#')
         ->and(yandexLinksWithoutBlankTarget($html))->toBe([]);
+});
+
+test('metrika counters are parsed from the management api response', function () {
+    expect(MetrikaService::countersFromResponse(['counters' => [
+        ['id' => 22222222, 'name' => 'Demo', 'site' => 'demo.example', 'site2' => ['site' => 'www.demo.example', 'domain' => 'demo.example']],
+        ['id' => 33333333, 'name' => '', 'site' => 'blog.example'],
+        ['name' => 'broken'],
+    ]]))->toBe([
+        ['id' => '22222222', 'name' => 'Demo', 'site' => 'www.demo.example', 'sites' => ['www.demo.example', 'demo.example']],
+        ['id' => '33333333', 'name' => '', 'site' => 'blog.example', 'sites' => ['blog.example']],
+    ]);
+
+    expect(YandexConnectionPage::counterLabel(['id' => '22222222', 'name' => 'Demo', 'site' => 'demo.example']))
+        ->toBe('Demo — demo.example (22222222)')
+        ->and(YandexConnectionPage::counterLabel(['id' => '3', 'name' => '', 'site' => 'blog.example']))
+        ->toBe('blog.example (3)');
+});
+
+test('counter is matched to APP_URL by site ignoring www and scheme', function (string $appUrl, ?string $expected) {
+    expect(MetrikaService::matchCounterByUrl(demoCounters(), $appUrl))->toBe($expected);
+})->with([
+    ['https://demo.example', '22222222'],
+    ['http://www.demo.example/admin', '22222222'],
+    ['https://WWW.Shop.Example', '11111111'],
+    ['https://missing.example', null],
+    ['not a url', null],
+]);
+
+test('counter is auto selected by APP_URL without saving anything', function () {
+    config()->set('app.url', 'https://www.demo.example');
+
+    $service = bindMetrikaCounters(demoCounters());
+
+    expect($service->counterId())->toBe('22222222')
+        ->and($service->counterSource())->toBe('auto')
+        ->and($service->isConfigured())->toBeTrue();
+});
+
+test('saved counter wins, then env, then the only counter of the account', function () {
+    config()->set('app.url', 'https://nomatch.example');
+
+    expect(bindMetrikaCounters(demoCounters())->counterSource())->toBe('env');
+
+    config()->set('moonshine-yandex-metrika.counter_id', null);
+    $single = bindMetrikaCounters([demoCounters()[0]]);
+
+    expect($single->counterId())->toBe('11111111')
+        ->and($single->counterSource())->toBe('auto');
+
+    expect(bindMetrikaCounters(demoCounters())->counterId())->toBe('');
+    expect(bindMetrikaCounters(null)->counterId())->toBe('');
+
+    migrateYandexSettings();
+    app(YandexSettings::class)->save(['counter_id' => '11111111']);
+    $saved = bindMetrikaCounters(demoCounters());
+
+    expect($saved->counterId())->toBe('11111111')
+        ->and($saved->counterSource())->toBe('db');
+});
+
+test('connection page offers the account counters in a select', function () {
+    migrateYandexSettings();
+    config()->set('app.url', 'https://demo.example');
+    config()->set('moonshine-yandex-metrika.counter_id', null);
+    bindMetrikaCounters(demoCounters());
+    bindWebmasterHosts(demoHosts());
+
+    $html = renderConnectionPage();
+
+    expect($html)->toMatch('#<select[^>]*name="counter_id"#')
+        ->and($html)->toContain('value="11111111"')
+        ->and($html)->toContain('Shop — shop.example (11111111)')
+        ->and($html)->toContain('Auto (by APP_URL): Demo — demo.example (22222222)')
+        ->and($html)->not->toContain('Could not load Metrika counters');
+});
+
+test('connection page falls back to a counter text field and a short notice when counters are unavailable', function () {
+    migrateYandexSettings();
+    bindMetrikaCounters(null);
+    bindWebmasterHosts(demoHosts());
+
+    $html = renderConnectionPage();
+
+    expect($html)->toContain('Could not load Metrika counters.')
+        ->and($html)->toContain('href="https://metrika.yandex.ru/list"')
+        ->and($html)->toMatch('#<input[^>]*name="counter_id"#')
+        ->and(yandexLinksWithoutBlankTarget($html))->toBe([]);
+});
+
+test('connection page in the empty state shows three steps to do and locks the token step', function () {
+    migrateYandexSettings();
+    config()->set('moonshine-yandex-metrika.token', null);
+    config()->set('moonshine-yandex-metrika.counter_id', null);
+    config()->set('moonshine-yandex-metrika.webmaster.host_id', null);
+    config()->set('moonshine-yandex-metrika.oauth_client_id', null);
+
+    $html = renderConnectionPage();
+
+    expect(substr_count($html, 'data-status="todo"'))->toBe(3)
+        ->and($html)->toContain('Yandex app')
+        ->and($html)->toContain('href="https://oauth.yandex.ru/client/new"')
+        ->and($html)->toContain('ym-copy')
+        ->and($html)->toContain('data-copy="http://localhost/admin/yandex-analytics/oauth/callback"')
+        ->and($html)->toContain('metrika:read')
+        ->and($html)->toContain('name="client_secret"')
+        ->and($html)->toMatch('#<button type="button" class="btn btn-primary btn-lg ym-oauth-button" disabled>Get token via Yandex</button>#')
+        ->and($html)->toContain('ym-step ym-step-2 ym-step--locked')
+        ->and($html)->toContain('ym-step ym-step-3 ym-step--locked')
+        ->and($html)->toContain('<summary>Enter token manually</summary>')
+        ->and($html)->toContain('Check connection')
+        ->and($html)->toContain('/admin/yandex-analytics/connection/check')
+        ->and($html)->toContain('/admin/yandex-analytics/connection/clear')
+        ->and(yandexLinksWithoutBlankTarget($html))->toBe([]);
+});
+
+test('connection page with everything connected shows all steps done with account and scopes', function () {
+    migrateYandexSettings();
+    config()->set('app.url', 'https://demo.example');
+    app(YandexSettings::class)->save([
+        'client_id' => YM_CLIENT_ID,
+        'client_secret' => 'super-secret-value',
+        'token' => 'db-token-value-1234',
+        'scopes' => ['metrika:read', 'webmaster:verify', 'webmaster:hostinfo'],
+    ]);
+    bindAccountProfile();
+    bindMetrikaCounters(demoCounters());
+    bindWebmasterHosts(demoHosts());
+
+    $html = renderConnectionPage();
+
+    expect(substr_count($html, 'data-status="done"'))->toBe(3)
+        ->and($html)->not->toMatch('#class="ym-step [^"]*ym-step--locked#')
+        ->and($html)->toContain('owner@example.com')
+        ->and($html)->toContain('webmaster:hostinfo')
+        ->and($html)->toContain('••••1234')
+        ->and($html)->not->toContain('db-token-value-1234')
+        ->and($html)->not->toContain('super-secret-value')
+        ->and($html)->toMatch('#<a href="[^"]*/admin/yandex-analytics/oauth/redirect" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg ym-oauth-button">Reconnect Yandex</a>#')
+        ->and($html)->not->toContain('Missing scopes')
+        ->and(yandexLinksWithoutBlankTarget($html))->toBe([]);
+});
+
+test('env values do not lock the counter and site step without a token in the database', function () {
+    migrateYandexSettings();
+    config()->set('moonshine-yandex-metrika.token', null);
+
+    $html = renderConnectionPage();
+
+    expect($html)->toContain('ym-step ym-step-2 ym-step--locked')
+        ->and($html)->not->toContain('ym-step ym-step-3 ym-step--locked')
+        ->and($html)->toMatch('#<input[^>]*name="counter_id"#');
+});
+
+test('check connection action runs a fresh probe and returns to the connection page', function () {
+    $response = app(ConnectionController::class)->check(app(\Tikhomirov\MoonshineYandexMetrika\Services\ConnectionProbe::class));
+
+    expect($response->getStatusCode())->toBe(302)
+        ->and($response->getTargetUrl())->toEndWith('/admin/page/yandex-connection-page')
+        ->and(route('moonshine-yandex-metrika.connection.check'))->toEndWith('/admin/yandex-analytics/connection/check');
 });

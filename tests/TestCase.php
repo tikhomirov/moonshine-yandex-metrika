@@ -24,5 +24,7 @@ abstract class TestCase extends Orchestra
         $app['config']->set('cache.default', 'array');
         $app['config']->set('moonshine-yandex-metrika.token', 'test-token');
         $app['config']->set('moonshine-yandex-metrika.counter_id', '12345678');
+        // Никаких реальных запросов к Яндексу из тестов.
+        $app['config']->set('moonshine-yandex-metrika.management_api_url', 'http://127.0.0.1:1/management/v1');
     }
 }

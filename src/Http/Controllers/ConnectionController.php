@@ -10,6 +10,7 @@ use Illuminate\Routing\Controller;
 use MoonShine\Support\Enums\ToastType;
 use RuntimeException;
 use Tikhomirov\MoonshineYandexMetrika\Pages\YandexConnectionPage;
+use Tikhomirov\MoonshineYandexMetrika\Services\ConnectionProbe;
 use Tikhomirov\MoonshineYandexMetrika\Support\YandexOAuthFlow;
 use Tikhomirov\MoonshineYandexMetrika\Support\YandexSettings;
 
@@ -49,6 +50,18 @@ final class ConnectionController extends Controller
         $settings->clear();
 
         return $this->back(__('moonshine-yandex-metrika::metrics.connection_cleared'), ToastType::SUCCESS);
+    }
+
+    /**
+     * «Проверить подключение»: свежий запрос к Метрике без кеша проверки.
+     */
+    public function check(ConnectionProbe $probe): RedirectResponse
+    {
+        $result = $probe->fresh();
+
+        return $result->isOk()
+            ? $this->back(__('moonshine-yandex-metrika::metrics.connection_check_ok'), ToastType::SUCCESS)
+            : $this->back($result->message, ToastType::ERROR);
     }
 
     public function redirect(Request $request, YandexOAuthFlow $flow, YandexSettings $settings): RedirectResponse
