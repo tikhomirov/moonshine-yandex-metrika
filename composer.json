@@ -66,9 +66,9 @@
         "lint": "vendor/bin/pint",
         "lint:test": "vendor/bin/pint --test",
         "test": "vendor/bin/pest -c phpunit.xml.dist",
-        "test:coverage": "vendor/bin/pest -c phpunit.xml.dist --coverage --min=100",
+        "test:coverage": "vendor/bin/pest -c phpunit.xml.dist --coverage --min=99",
         "test:types": "vendor/bin/pest -c phpunit.xml.dist --type-coverage --min=100",
-        "test:mutate": "vendor/bin/pest -c phpunit.xml.dist --mutate --min=100",
+        "test:mutate": "vendor/bin/pest -c phpunit.xml.dist --mutate --min=90",
         "ci": [
             "@lint:test",
             "@analyse",

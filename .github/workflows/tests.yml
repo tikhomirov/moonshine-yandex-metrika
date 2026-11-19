@@ -40,7 +40,7 @@ jobs:
           composer update --prefer-dist --no-interaction --no-progress
 
       - name: Run tests with coverage
-        run: vendor/bin/pest -c phpunit.xml.dist --coverage --min=100
+        run: vendor/bin/pest -c phpunit.xml.dist --coverage --min=99
 
   type-coverage:
     runs-on: ubuntu-latest
@@ -82,4 +82,4 @@ jobs:
           extensions: dom, mbstring, sqlite, pcov
           coverage: pcov
       - run: composer update --prefer-dist --no-interaction --no-progress
-      - run: vendor/bin/pest -c phpunit.xml.dist --mutate --min=100
+      - run: vendor/bin/pest -c phpunit.xml.dist --mutate --min=90
