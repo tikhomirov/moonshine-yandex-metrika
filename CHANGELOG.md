@@ -7,18 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-19
+
 ### Added
 
-- The dashboard shows which Yandex OAuth app issued the token: its `client_id` next to the account, linked to the app page on oauth.yandex.ru
+- The connection page shows which Yandex OAuth app issued the token: its `client_id` linked to the app page on oauth.yandex.ru
 - Missing-scope alerts on the Webmaster tab now offer actions: open the app's edit page to add the scope, and "Reconnect Yandex" to issue a new token
 - Optional `oauth_client_id` config key (`YANDEX_OAUTH_CLIENT_ID`); by default the `client_id` is read from login.yandex.ru/info for the current token
 - Settings in the database (optional migration `yandex_metrika_settings`): ClientID, Client secret and token (encrypted), counter ID, host ID, token scopes and the date it was obtained. Database values take priority over env; all services read them through `Support\YandexSettings`
 - "Yandex connection" MoonShine page (registered automatically, `connection_page` config key): app link, value source (DB or env), masked secrets, granted and missing scopes, settings form, reset to env
 - "Get token" / "Reconnect" buttons: OAuth authorization code flow with `state` and PKCE; the callback route `/{moonshine.prefix}/yandex-analytics/oauth/callback` saves the token
 - Artisan commands `yandex-metrika:connection:set`, `yandex-metrika:connection:status`, `yandex-metrika:connection:clear`
-
 - "Connection settings" button in the dashboard header; the connection page is not a menu item and has a "Back to Yandex Metrika" link
-- All Yandex OAuth links open in a new tab (`target="_blank" rel="noopener noreferrer"`); the header `client_id` is a visible link with an external icon
+- All Yandex OAuth links open in a new tab (`target="_blank" rel="noopener noreferrer"`)
 - Token date is shown in `app.timezone`
 - Webmaster host is a dropdown of the account's sites on the connection page; without a saved host the site matching `APP_URL` is picked automatically (then env, then the only site). The site list is cached for 5 minutes
 - Dashboard notices are one short line with a link to the connection page
@@ -33,7 +34,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Compatibility
 
 - `guzzlehttp/guzzle` `^7.0 || ^8.0`; CI also runs Laravel 13 with Guzzle 8
-
 - Without the migration and without saved settings everything works from env as before
 
 ## [1.3.0] - 2026-11-19
