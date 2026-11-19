@@ -2,14 +2,12 @@
 
 declare(strict_types=1);
 
-use MoonShine\Contracts\UI\ComponentContract;
-use MoonShine\UI\Components\FlexibleRender;
 use Tikhomirov\MoonshineYandexMetrika\Contracts\AnalyticsDashboardTab;
 use Tikhomirov\MoonshineYandexMetrika\Support\AnalyticsTabRegistry;
 use Tikhomirov\MoonshineYandexMetrika\Support\DatePeriod;
 
 test('registry stores tabs by id and returns enabled subset', function () {
-    $registry = new AnalyticsTabRegistry();
+    $registry = new AnalyticsTabRegistry;
 
     $enabled = new class implements AnalyticsDashboardTab
     {

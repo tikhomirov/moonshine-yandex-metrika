@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use MoonShine\UI\Components\Layout\Div;
 use Tikhomirov\MoonshineYandexMetrika\Components\LineChartComponent;
 use Tikhomirov\MoonshineYandexMetrika\Pages\MetrikaDashboardPage;
 use Tikhomirov\MoonshineYandexMetrika\Services\ConnectionProbe;
@@ -10,6 +11,7 @@ use Tikhomirov\MoonshineYandexMetrika\Services\MetrikaService;
 use Tikhomirov\MoonshineYandexMetrika\Services\WebmasterService;
 use Tikhomirov\MoonshineYandexMetrika\Services\YandexAccountService;
 use Tikhomirov\MoonshineYandexMetrika\Support\DatePeriod;
+use Tikhomirov\MoonshineYandexMetrika\Support\YandexSettings;
 
 beforeEach(function () {
     $this->app->instance(MetrikaService::class, new class extends MetrikaService
@@ -165,7 +167,7 @@ test('metrika dashboard wraps all page components in one space-elements containe
 
     $root = $components->first();
 
-    expect($root)->toBeInstanceOf(\MoonShine\UI\Components\Layout\Div::class)
+    expect($root)->toBeInstanceOf(Div::class)
         ->and((string) $root->getAttribute('class'))->toContain('space-elements');
 });
 
@@ -217,4 +219,179 @@ test('disabled widget flag still hides the matching kpi card', function () {
         'Page Views',
         'Bounce Rate',
     ]);
+});
+
+function bindOAuthClientProfile(?string $clientId): void
+{
+    app()->instance(YandexAccountService::class, new class($clientId) extends YandexAccountService
+    {
+        public function __construct(private readonly ?string $fakeClientId) {}
+
+        public function profile(): ?array
+        {
+            return [
+                'id' => '1',
+                'login' => 'owner',
+                'email' => 'owner@example.com',
+                'avatar_url' => null,
+                'client_id' => $this->fakeClientId,
+            ];
+        }
+    });
+}
+
+function bindWebmasterWithoutLinksScope(bool $summaryFails = false): void
+{
+    app()->instance(WebmasterService::class, new class($summaryFails) extends WebmasterService
+    {
+        public function __construct(private readonly bool $summaryFails) {}
+
+        public function forPeriod(DatePeriod $period): static
+        {
+            return $this;
+        }
+
+        public function isConfigured(): bool
+        {
+            return true;
+        }
+
+        public function displayHost(): string
+        {
+            return 'example.com';
+        }
+
+        public function summary(): ?array
+        {
+            return $this->summaryFails ? null : [
+                'searchable_pages_count' => 1,
+                'excluded_pages_count' => 0,
+                'site_problems' => ['FATAL' => 0, 'CRITICAL' => 0, 'POSSIBLE_PROBLEM' => 0, 'RECOMMENDATION' => 0],
+                'problems_total' => 0,
+                'sqi' => null,
+            ];
+        }
+
+        public function externalLinksTotal(): ?int
+        {
+            return null;
+        }
+
+        public function cabinetSummaryUrl(): string
+        {
+            return 'https://webmaster.yandex.ru/';
+        }
+
+        public function cabinetIndexingUrl(): string
+        {
+            return 'https://webmaster.yandex.ru/';
+        }
+
+        public function cabinetDiagnosticsUrl(): string
+        {
+            return 'https://webmaster.yandex.ru/';
+        }
+
+        public function cabinetLinksUrl(): string
+        {
+            return 'https://webmaster.yandex.ru/';
+        }
+
+        public function cabinetQueriesUrl(): string
+        {
+            return 'https://webmaster.yandex.ru/';
+        }
+    });
+}
+
+function renderWebmasterTabHtml(): string
+{
+    return collect(app(MetrikaDashboardPage::class)->renderWebmasterTab(
+        DatePeriod::today(),
+        ['webmaster_summary' => true, 'webmaster_queries' => false],
+        10,
+    ))->map(fn ($component) => (string) $component->render())->implode('');
+}
+
+test('toolbar shows the account without oauth app details or captions', function () {
+    bindOAuthClientProfile('4760187d81bc4b7799476b42b5103713');
+
+    $html = collect(app(MetrikaDashboardPage::class)->getComponents())
+        ->map(fn ($component) => (string) $component->render())
+        ->implode('');
+
+    expect($html)->toContain('owner@example.com')
+        ->and($html)->not->toContain('OAuth app')
+        ->and($html)->not->toContain('4760187d81bc4b7799476b42b5103713')
+        ->and($html)->not->toContain('Yandex data source')
+        ->and($html)->not->toContain('test-token');
+});
+
+test('toolbar has a connection settings button leading to the connection page', function () {
+    $html = collect(app(MetrikaDashboardPage::class)->getComponents())
+        ->map(fn ($component) => (string) $component->render())
+        ->implode('');
+
+    expect($html)->toContain('ym-settings-link')
+        ->and($html)->toContain('Connection settings')
+        ->and($html)->toMatch('#<a href="[^"]*/admin/page/yandex-connection-page"[^>]*ym-settings-link#');
+});
+
+test('missing links scope alert offers app edit link and reconnect', function () {
+    bindOAuthClientProfile('4760187d81bc4b7799476b42b5103713');
+    bindWebmasterWithoutLinksScope();
+
+    $html = renderWebmasterTabHtml();
+
+    expect($html)->toContain('External links are unavailable: no webmaster:hostinfo scope.')
+        ->and($html)->toMatch('#<a href="[^"]*/admin/page/yandex-connection-page" class="ym-notice-link">Yandex connection →</a>#')
+        ->and($html)->toContain('href="https://oauth.yandex.ru/client/edit/4760187d81bc4b7799476b42b5103713"')
+        ->and($html)->toContain('Open the app and add webmaster:hostinfo')
+        ->and($html)->toContain('response_type=token&amp;client_id=4760187d81bc4b7799476b42b5103713&amp;force_confirm=yes')
+        ->and($html)->toContain('Reconnect Yandex')
+        ->and($html)->not->toContain('not tied to the selected period')
+        ->and($html)->not->toContain('test-token')
+        ->and(yandexLinksWithoutBlankTarget($html))->toBe([]);
+});
+
+test('webmaster fetch failure alert also offers the oauth actions', function () {
+    bindOAuthClientProfile('4760187d81bc4b7799476b42b5103713');
+    bindWebmasterWithoutLinksScope(summaryFails: true);
+
+    $html = renderWebmasterTabHtml();
+
+    expect($html)->toContain('Could not load Webmaster data.')
+        ->and($html)->toContain('ym-notice-link')
+        ->and($html)->toContain('Open the app and add webmaster:verify, webmaster:hostinfo')
+        ->and($html)->toContain('Reconnect Yandex');
+});
+
+test('scope alert links to the apps list and the connection page when the app is unknown', function () {
+    bindOAuthClientProfile(null);
+    bindWebmasterWithoutLinksScope();
+
+    $html = renderWebmasterTabHtml();
+
+    expect($html)->toContain('href="https://oauth.yandex.ru/"')
+        ->and($html)->toContain('Open Yandex OAuth apps')
+        ->and($html)->toContain('ym-notice-link')
+        ->and($html)->not->toContain('Reconnect Yandex');
+});
+
+test('reconnect uses the package oauth flow when the client secret is stored', function () {
+    $this->artisan('migrate', ['--force' => true])->run();
+    $settings = app(YandexSettings::class);
+    $settings->refresh();
+    $settings->save(['client_id' => '4760187d81bc4b7799476b42b5103713', 'client_secret' => 'super-secret-value']);
+
+    bindOAuthClientProfile('4760187d81bc4b7799476b42b5103713');
+    bindWebmasterWithoutLinksScope();
+
+    $html = renderWebmasterTabHtml();
+
+    expect($html)->toContain('/admin/yandex-analytics/oauth/redirect')
+        ->and($html)->not->toContain('response_type=token')
+        ->and($html)->toContain('Yandex connection')
+        ->and($html)->not->toContain('super-secret-value')
+        ->and(yandexLinksWithoutBlankTarget($html))->toBe([]);
 });

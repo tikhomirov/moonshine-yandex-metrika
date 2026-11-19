@@ -17,4 +17,3 @@ test('summary_metrics default to the current kpi card order', function () {
         'bounce_rate',
     ]);
 });
-

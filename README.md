@@ -73,7 +73,65 @@ YANDEX_METRIKA_DEFAULT_PRESET=today
 YANDEX_WEBMASTER_HOST_ID=https:example.com:443
 ```
 
-`YANDEX_WEBMASTER_HOST_ID` is required for Webmaster and must use the host format shown in Yandex Webmaster. Metrika keeps working without it.
+`YANDEX_WEBMASTER_HOST_ID` is optional. Without it (and without a host saved on the connection page) the package loads the account's sites from the Webmaster API and picks the one matching `APP_URL` (scheme, host and port; `www` is ignored). If nothing matches, it falls back to `YANDEX_WEBMASTER_HOST_ID`, and then to the only site of the account. The auto choice is not saved. The site list is cached for 5 minutes. Metrika keeps working without a host.
+
+### OAuth app and notices
+
+All OAuth app details live on the **Yandex connection** page; the dashboard header shows only the account and the **Connection settings** button. If the app ClientID is not saved, the page shows the one read from login.yandex.ru/info for the current token (badge "from token"); `YANDEX_OAUTH_CLIENT_ID` overrides it.
+
+Dashboard notices (connection errors, missing scopes, Webmaster not configured) are one short line with a **Yandex connection →** link.
+
+When a Webmaster scope is missing, the alert offers two actions:
+
+- **Open the app and add the scope**: opens `https://oauth.yandex.ru/client/edit/<client_id>`.
+- **Reconnect Yandex**: opens the Yandex consent screen for this app and issues a new token. Yandex revokes old tokens when app scopes change. With the Client secret saved (see below), the button runs the package OAuth flow and saves the token automatically. Without it, the button opens Yandex's token page: put the new token into `YANDEX_METRIKA_TOKEN` and run `php artisan config:cache` (Yandex shows the token when the app has the redirect URI `https://oauth.yandex.ru/verification_code`).
+
+### Yandex connection page and settings in the database
+
+Optional. Without the migration everything works from `.env` as before.
+
+```bash
+php artisan migrate
+```
+
+The migration creates `yandex_metrika_settings`. It stores ClientID, Client secret and the token (encrypted with `APP_KEY`), the counter ID, the Webmaster host, the token scopes and the date it was obtained. A value saved in the database takes priority over env; an empty value falls back to env.
+
+The **Yandex connection** page is registered in MoonShine automatically (disable with `'connection_page' => false`). It is not a menu item: open it with the **Connection settings** button in the dashboard header (next to CSV) or from the missing-scope alerts. The page has a **← Back to Yandex Metrika** link.
+
+All links to Yandex (the app page, its edit page, token issuing, **Get token via Yandex** / **Reconnect**) open in a new tab, so the admin stays open. After OAuth the new tab returns to the connection page and can be closed. The token date is shown in `app.timezone`.
+
+The page is split into numbered steps, each with a "done" / "to do" status:
+
+1. **Yandex app**: **Create app** link (oauth.yandex.ru), required scopes, Redirect URI with a **Copy** button, ClientID and Client secret fields with **Save**.
+2. **Token**: **Get token via Yandex** button (OAuth), active after step 1. With a token the step shows the account, the masked token and its scopes. **Enter token manually** is a collapsed form.
+3. **Counter and site**: Metrika counter and Webmaster host dropdowns, active once there is a token.
+
+At the bottom: **Check connection** (a fresh request to Metrika) and **Reset** (delete the settings from the database and fall back to env). A step is not locked when its values come from env. Values from env are shown as field placeholders; secrets only masked.
+
+**Metrika counter** is a dropdown with the account's counters from the Management API (`management/v1/counters`): name, site and ID. **Webmaster host** is a dropdown with the account's sites from the Webmaster API. Both lists are cached for 5 minutes. The first item **Auto (by APP_URL): …** keeps the value unsaved and shows what was picked; the status marks it with the "auto" badge.
+
+Counter order: saved in the database → the counter whose `site` / `site2` matches the `APP_URL` host (`www` and scheme are ignored) → `YANDEX_METRIKA_COUNTER_ID` → the only counter of the account. Host order is the same (scheme, host and port are compared). Without a token, or when the API fails, the field is a text input and the step shows a short notice with a link to Metrika or Webmaster. `yandex-metrika:connection:set --counter-id=... --host-id=...` works as before. The Management API URL can be changed with the `management_api_url` config key.
+
+**Get token** uses the OAuth authorization code flow with `state` and PKCE. It requests the scopes from `oauth_scopes` and saves the token to the database. For it to work:
+
+1. Save ClientID and Client secret on the page (or set `YANDEX_OAUTH_CLIENT_ID` / `YANDEX_OAUTH_CLIENT_SECRET`).
+2. In the app on oauth.yandex.ru add this **Redirect URI** (the package callback, shown on the page too):
+
+   ```
+   https://your-site.example/admin/yandex-analytics/oauth/callback
+   ```
+
+   `admin` is your `moonshine.prefix`. Keep `https://oauth.yandex.ru/verification_code` if you still issue tokens by hand.
+3. The app must have every scope from `oauth_scopes` (by default `metrika:read`, `webmaster:verify`, `webmaster:hostinfo`), otherwise Yandex returns `invalid_scope`.
+
+Artisan:
+
+```bash
+php artisan yandex-metrika:connection:set --client-id=... --ask-secret --counter-id=... --host-id=https:example.com:443
+php artisan yandex-metrika:connection:set --ask-token   # paste a token by hand
+php artisan yandex-metrika:connection:status            # values and sources, secrets masked
+php artisan yandex-metrika:connection:clear --force     # delete DB settings, back to env
+```
 
 ## KPI cards
 

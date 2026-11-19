@@ -26,6 +26,9 @@ use Tikhomirov\MoonshineYandexMetrika\Support\AnalyticsTabAttributes;
 use Tikhomirov\MoonshineYandexMetrika\Support\AnalyticsTabRegistry;
 use Tikhomirov\MoonshineYandexMetrika\Support\DatePeriod;
 use Tikhomirov\MoonshineYandexMetrika\Support\WrapsPageComponentsInSpaceElements;
+use Tikhomirov\MoonshineYandexMetrika\Support\YandexOAuthApp;
+use Tikhomirov\MoonshineYandexMetrika\Support\YandexOAuthFlow;
+use Tikhomirov\MoonshineYandexMetrika\Support\YandexSettings;
 
 class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
 {
@@ -149,7 +152,7 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
         $tabs ??= $this->additionalAnalyticsTabs();
 
         foreach ($tabs as $tab) {
-            if (($tab['id'] ?? '') === $tabId) {
+            if ($tab['id'] === $tabId) {
                 return $tab;
             }
         }
@@ -235,8 +238,7 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
 
         if ($attributes->requiresYandex && ! $probe->isOk()) {
             return [
-                Alert::make('exclamation-triangle', 'warning')
-                    ->content($probe->message),
+                $this->notice($probe->message),
             ];
         }
 
@@ -354,6 +356,7 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
 
         $accountHtml = '';
 
+        // Данные OAuth-приложения показываются только на странице «Подключение Яндекса».
         if ($account && ($account['avatar_url'] || $account['email'] || $account['login'])) {
             $avatar = $account['avatar_url']
                 ? '<img src="'.e($account['avatar_url']).'" alt="" class="h-10 w-10 rounded-full object-cover" width="40" height="40">'
@@ -362,7 +365,6 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
             $accountHtml = '<div class="flex items-center gap-3">'
                 .$avatar
                 .'<div class="leading-tight"><div class="text-sm font-medium">'.$name.'</div>'
-                .'<div class="text-xs opacity-70">'.e(__('moonshine-yandex-metrika::metrics.account_source')).'</div>'
                 .'</div></div>';
         }
 
@@ -377,6 +379,16 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
                 .$exportLabel.'">'
                 .$this->tabIconSvg('arrow-down-tray')
                 .'<span>'.$exportLabel.'</span>'
+                .'</a>';
+        }
+
+        // Настройки подключения: страница не в меню, вход только отсюда.
+        if (config('moonshine-yandex-metrika.connection_page', true)) {
+            $settingsLabel = e(__('moonshine-yandex-metrika::metrics.connection_settings_link'));
+            $exportHtml .= '<a href="'.e(app(YandexConnectionPage::class)->getUrl()).'" class="btn btn-secondary btn-sm ym-export ym-settings-link" title="'
+                .$settingsLabel.'">'
+                .$this->tabIconSvg('cog-6-tooth')
+                .'<span>'.$settingsLabel.'</span>'
                 .'</a>';
         }
 
@@ -427,7 +439,7 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
     flex:0 0 auto;
   }
   .ym-period { display:flex; flex-direction:column; gap:.75rem; }
-  .ym-period__hint { font-size:13px; opacity:.7; margin:0; }
+  .ym-notice-link { font-weight:600; text-decoration:underline; text-underline-offset:2px; white-space:nowrap; }
   .ym-toolbar__period {
     display:inline-flex;
     flex-wrap:wrap;
@@ -632,7 +644,7 @@ HTML;
 
             $href = $pageUrl.'?'.http_build_query($this->pageQuery($period, $tab['id']));
             $tone = $tab['id'] === $activeTab ? 'btn-primary' : 'btn-secondary';
-            $icon = $this->tabIconSvg($tab['icon'] ?? 'square-2-stack');
+            $icon = $this->tabIconSvg($tab['icon']);
             $tabsHtml .= '<a href="'.e($href).'" class="btn ym-tab '.$tone.'">'
                 .$icon
                 .'<span>'.e($tab['label']).'</span>'
@@ -677,6 +689,7 @@ HTML;
             'presentation-chart-line' => '<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5M9 11.25l3 3 3.75-4.5"/>',
             'magnifying-glass' => '<path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/>',
             'arrow-down-tray' => '<path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/>',
+            'cog-6-tooth' => '<path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>',
             'square-2-stack' => '<path stroke-linecap="round" stroke-linejoin="round" d="M16.5 8.25V6.75a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 3 6.75v9A2.25 2.25 0 0 0 5.25 18h1.5m1.5-3h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 6 5.25v9A2.25 2.25 0 0 0 8.25 16.5Z"/>',
         ];
 
@@ -845,19 +858,15 @@ HTML;
     ): array {
         if (! $webmaster->isConfigured()) {
             return [
-                Alert::make('information-circle', 'info')
-                    ->content(__('moonshine-yandex-metrika::metrics.webmaster_not_configured')),
+                $this->notice(__('moonshine-yandex-metrika::metrics.webmaster_not_configured'), 'information-circle', 'info'),
             ];
         }
 
         $host = e($webmaster->displayHost());
         $components = [
             FlexibleRender::make(
-                '<div class="mb-1 text-sm opacity-70">'
+                '<div class="mb-3 text-sm opacity-70">'
                 .e(__('moonshine-yandex-metrika::metrics.webmaster_host')).': <strong>'.$host.'</strong>'
-                .'</div>'
-                .'<div class="mb-3 text-sm opacity-70">'
-                .e(__('moonshine-yandex-metrika::metrics.summary_current_state_hint'))
                 .'</div>',
             ),
         ];
@@ -867,8 +876,8 @@ HTML;
             $linksTotal = $webmaster->externalLinksTotal();
 
             if ($summary === null) {
-                $components[] = Alert::make('exclamation-triangle', 'warning')
-                    ->content(__('moonshine-yandex-metrika::metrics.webmaster_fetch_failed'));
+                $components[] = $this->notice(__('moonshine-yandex-metrika::metrics.webmaster_fetch_failed'));
+                $components[] = $this->buildOAuthScopeActions('webmaster:verify, webmaster:hostinfo');
             } else {
                 $components[] = $this->buildCompactStats([
                     [
@@ -916,8 +925,8 @@ HTML;
                 );
 
                 if ($linksTotal === null) {
-                    $components[] = Alert::make('information-circle', 'info')
-                        ->content(__('moonshine-yandex-metrika::metrics.external_links_scope_hint'));
+                    $components[] = $this->notice(__('moonshine-yandex-metrika::metrics.external_links_scope_hint'), 'information-circle', 'info');
+                    $components[] = $this->buildOAuthScopeActions('webmaster:hostinfo');
                 }
             }
         }
@@ -931,19 +940,15 @@ HTML;
             $components[] = Divider::make();
             $components[] = FlexibleRender::make(
                 '<div class="ym-queries-period">'
-                .'<div class="ym-period__hint">'
-                .e(__('moonshine-yandex-metrika::metrics.queries_period_hint'))
-                .'</div>'
                 .$this->renderPeriodControlsHtml($period, self::TAB_WEBMASTER)
                 .'</div>',
             );
 
             if ($report['used_fallback']) {
-                $components[] = Alert::make('information-circle', 'info')
-                    ->content(__('moonshine-yandex-metrika::metrics.queries_fallback_hint', [
-                        'from' => $report['date_from'] ?? '',
-                        'to' => $report['date_to'] ?? '',
-                    ]));
+                $components[] = $this->notice(__('moonshine-yandex-metrika::metrics.queries_fallback_hint', [
+                    'from' => $report['date_from'] ?? '',
+                    'to' => $report['date_to'] ?? '',
+                ]), 'information-circle', 'info', withLink: false);
             }
 
             $components[] = Box::make(
@@ -953,6 +958,57 @@ HTML;
         }
 
         return $components;
+    }
+
+    /**
+     * Действия под алертом о нехватке прав: открыть OAuth-приложение и выпустить новый токен.
+     * Токен задаётся в YANDEX_METRIKA_TOKEN, поэтому новый токен нужно вставить в .env.
+     */
+    protected function buildOAuthScopeActions(string $scope): FlexibleRender
+    {
+        $app = $this->account?->oauthApp() ?? new YandexOAuthApp(null);
+
+        $label = $app->isKnown()
+            ? __('moonshine-yandex-metrika::metrics.oauth_open_app_add_scope', ['scope' => $scope])
+            : __('moonshine-yandex-metrika::metrics.oauth_open_apps');
+
+        $links = '<a href="'.e($app->editUrl()).'" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm">'
+            .e($label).'</a>';
+
+        // С Client secret и таблицей настроек: свой OAuth flow, токен сохранится в БД.
+        // Иначе: выпуск токена на стороне Яндекса (токен вставляется в env).
+        $flowReady = app(YandexSettings::class)->tableExists() && app(YandexOAuthFlow::class)->canStart();
+        $tokenUrl = $flowReady ? route('moonshine-yandex-metrika.oauth.redirect') : $app->tokenUrl();
+
+        if ($tokenUrl !== null) {
+            // Яндекс открывается в новой вкладке, чтобы не закрыть админку.
+            $links .= '<a href="'.e($tokenUrl).'" target="_blank" rel="noopener noreferrer"'
+                .' class="btn btn-primary btn-sm">'
+                .e(__('moonshine-yandex-metrika::metrics.oauth_reconnect')).'</a>';
+        }
+
+        return FlexibleRender::make(
+            '<div class="ym-oauth-actions"><div class="ym-cabinet-links">'.$links.'</div></div>',
+        );
+    }
+
+    /**
+     * Короткий нотис со ссылкой на страницу «Подключение Яндекса».
+     */
+    protected function notice(
+        string $message,
+        string $icon = 'exclamation-triangle',
+        string $type = 'warning',
+        bool $withLink = true,
+    ): Alert {
+        $html = e($message);
+
+        if ($withLink && config('moonshine-yandex-metrika.connection_page', true)) {
+            $html .= ' <a href="'.e(app(YandexConnectionPage::class)->getUrl()).'" class="ym-notice-link">'
+                .e(__('moonshine-yandex-metrika::metrics.connection_notice_link')).'</a>';
+        }
+
+        return Alert::make($icon, $type)->content($html);
     }
 
     /**
@@ -967,7 +1023,9 @@ HTML;
             $chartData,
         ));
         $label = e(__('moonshine-yandex-metrika::metrics.visits'));
-        $theme = view('moonshine-yandex-metrika::components.chart-theme')->render();
+        /** @var view-string $themeView */
+        $themeView = 'moonshine-yandex-metrika::components.chart-theme';
+        $theme = view($themeView)->render();
 
         return FlexibleRender::make(<<<HTML
 <div x-ignore style="position: relative; height: 300px;">

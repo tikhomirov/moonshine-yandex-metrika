@@ -8,6 +8,7 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Cache;
 use Tikhomirov\MoonshineYandexMetrika\Support\DatePeriod;
+use Tikhomirov\MoonshineYandexMetrika\Support\YandexSettings;
 
 /**
  * Проверяет доступ к API и объясняет ошибку (пакет иначе глотает исключения).
@@ -20,10 +21,21 @@ final class ConnectionProbe
 
     private const int SUCCESS_TTL = 300;
 
+    /**
+     * Проверка без кеша (кнопка «Проверить подключение»).
+     */
+    public function fresh(): ConnectionProbeResult
+    {
+        Cache::store(config('moonshine-yandex-metrika.cache_store'))->forget(self::CACHE_KEY);
+
+        return $this->check();
+    }
+
     public function check(): ConnectionProbeResult
     {
-        $token = mb_trim((string) config('moonshine-yandex-metrika.token'));
-        $counterId = mb_trim((string) config('moonshine-yandex-metrika.counter_id'));
+        $settings = app(YandexSettings::class);
+        $token = $settings->token();
+        $counterId = app(MetrikaService::class)->counterId();
 
         if ($token === '' || $counterId === '') {
             $missing = [];
@@ -37,7 +49,7 @@ final class ConnectionProbe
             }
 
             return ConnectionProbeResult::notConfigured(
-                'Не заполнены переменные окружения: '.implode(', ', $missing).'.',
+                'Не заданы: '.implode(', ', $missing).'.',
             );
         }
 
@@ -95,11 +107,13 @@ final class ConnectionProbe
 
     private function explain(int $status, string $message): string
     {
+        logger()->channel('single')->warning('[YandexMetrika] probe failed: '.$message);
+
         return match ($status) {
-            401 => 'Яндекс не распознал токен (401). Обновите YANDEX_METRIKA_TOKEN.',
-            403 => 'Нет доступа к счётчику (403). Проверьте токен, scopes и YANDEX_METRIKA_COUNTER_ID.',
-            404 => 'Счётчик не найден (404). Проверьте YANDEX_METRIKA_COUNTER_ID.',
-            default => 'Не удалось соединиться с API Яндекс.Метрики: '.$message,
+            401 => 'Токен не принят Яндексом (401).',
+            403 => 'Нет доступа к счётчику (403).',
+            404 => 'Счётчик не найден (404).',
+            default => 'API Яндекс.Метрики недоступен.',
         };
     }
 }

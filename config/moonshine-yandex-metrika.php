@@ -8,6 +8,41 @@ return [
     'token' => env('YANDEX_METRIKA_TOKEN'),
 
     /*
+     * Client ID of the Yandex OAuth app that issued the token (optional).
+     * Used only for links in the dashboard UI. When empty, it is read from
+     * login.yandex.ru/info for the current token. Never put the secret here.
+     */
+    'oauth_client_id' => env('YANDEX_OAUTH_CLIENT_ID'),
+
+    /*
+     * Client secret of the same OAuth app. Needed only for the "Get token"
+     * button (authorization code flow). Values saved on the "Yandex
+     * connection" page (database) take priority over env.
+     */
+    'oauth_client_secret' => env('YANDEX_OAUTH_CLIENT_SECRET'),
+
+    /*
+     * Scopes requested by the "Get token" / "Reconnect" button. The OAuth
+     * app must have all of them, otherwise Yandex returns invalid_scope.
+     */
+    'oauth_scopes' => [
+        'metrika:read',
+        'webmaster:verify',
+        'webmaster:hostinfo',
+    ],
+
+    /*
+     * Database table for settings saved from the admin UI or artisan.
+     * Without the migration everything works from env as before.
+     */
+    'settings_table' => 'yandex_metrika_settings',
+
+    /*
+     * Register the "Yandex connection" MoonShine page automatically.
+     */
+    'connection_page' => true,
+
+    /*
      * Yandex Metrika counter ID (the number from your counter settings).
      */
     'counter_id' => env('YANDEX_METRIKA_COUNTER_ID'),
@@ -87,6 +122,11 @@ return [
      * Yandex Metrika API base URL.
      */
     'api_url' => 'https://api-metrika.yandex.net/stat/v1/data',
+
+    /*
+     * Yandex Metrika Management API (list of counters for the connection page).
+     */
+    'management_api_url' => 'https://api-metrika.yandex.net/management/v1',
 
     /*
      * Yandex Login info endpoint (email + avatar).

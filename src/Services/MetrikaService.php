@@ -9,6 +9,7 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Cache;
 use Tikhomirov\MoonshineYandexMetrika\Support\DatePeriod;
+use Tikhomirov\MoonshineYandexMetrika\Support\YandexSettings;
 
 class MetrikaService
 {
@@ -16,7 +17,13 @@ class MetrikaService
 
     protected string $token;
 
-    protected string $counterId;
+    protected ?string $counterId = null;
+
+    protected ?string $counterSource = null;
+
+    protected string $managementUrl;
+
+    private const int COUNTERS_TTL = 300;
 
     protected int $days;
 
@@ -32,8 +39,9 @@ class MetrikaService
 
     public function __construct()
     {
-        $this->token = (string) config('moonshine-yandex-metrika.token');
-        $this->counterId = (string) config('moonshine-yandex-metrika.counter_id');
+        $settings = app(YandexSettings::class);
+        $this->token = $settings->token();
+        $this->managementUrl = rtrim((string) config('moonshine-yandex-metrika.management_api_url', 'https://api-metrika.yandex.net/management/v1'), '/');
         $this->days = (int) config('moonshine-yandex-metrika.days', 0);
         $this->cacheTtl = (int) config('moonshine-yandex-metrika.cache_ttl', 3600);
         $this->cacheStore = config('moonshine-yandex-metrika.cache_store');
@@ -69,7 +77,7 @@ class MetrikaService
     public function request(array $params): ?array
     {
         $query = array_merge([
-            'ids' => $this->counterId,
+            'ids' => $this->counterId(),
             'date1' => $this->date1,
             'date2' => $this->date2,
         ], $params);
@@ -274,7 +282,185 @@ class MetrikaService
 
     public function isConfigured(): bool
     {
-        return $this->token !== '' && $this->counterId !== '';
+        return $this->token !== '' && $this->counterId() !== '';
+    }
+
+    /**
+     * Счётчик: сохранённый в БД → счётчик сайта APP_URL → env → единственный счётчик аккаунта.
+     */
+    public function counterId(): string
+    {
+        if ($this->counterId === null) {
+            [$this->counterId, $this->counterSource] = $this->resolveCounter();
+        }
+
+        return $this->counterId;
+    }
+
+    /**
+     * Откуда взят счётчик: db, auto, env или null.
+     */
+    public function counterSource(): ?string
+    {
+        $this->counterId();
+
+        return $this->counterSource;
+    }
+
+    /**
+     * Счётчики аккаунта по текущему токену. Null — нет токена или API вернул ошибку.
+     *
+     * @return list<array{id: string, name: string, site: string, sites: list<string>}>|null
+     */
+    public function counters(): ?array
+    {
+        if ($this->token === '') {
+            return null;
+        }
+
+        $cacheKey = 'yandex_metrika_counters_'.sha1($this->managementUrl.'|'.$this->token);
+        $store = $this->cacheStore ? Cache::store($this->cacheStore) : Cache::store();
+        $cached = $store->get($cacheKey);
+
+        if (is_array($cached)) {
+            /** @var list<array{id: string, name: string, site: string, sites: list<string>}> $cached */
+            return $cached;
+        }
+
+        try {
+            $response = $this->http->get($this->managementUrl.'/counters', [
+                'query' => ['per_page' => 1000],
+                'timeout' => 10,
+            ]);
+            $data = json_decode($response->getBody()->getContents(), true);
+        } catch (GuzzleException $e) {
+            logger()->warning('[YandexMetrika] counters: '.$e->getMessage());
+
+            return null;
+        }
+
+        if (! is_array($data) || ! isset($data['counters'])) {
+            return null;
+        }
+
+        $counters = self::countersFromResponse($data);
+        $store->put($cacheKey, $counters, self::COUNTERS_TTL);
+
+        return $counters;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data  ответ GET /management/v1/counters
+     * @return list<array{id: string, name: string, site: string, sites: list<string>}>
+     */
+    public static function countersFromResponse(array $data): array
+    {
+        $counters = [];
+
+        foreach ((array) ($data['counters'] ?? []) as $counter) {
+            if (! is_array($counter) || ! isset($counter['id']) || ! is_numeric($counter['id'])) {
+                continue;
+            }
+
+            $sites = [];
+
+            foreach ([$counter['site2']['site'] ?? null, $counter['site2']['domain'] ?? null, $counter['site'] ?? null] as $site) {
+                if (is_string($site) && $site !== '' && ! in_array($site, $sites, true)) {
+                    $sites[] = $site;
+                }
+            }
+
+            $counters[] = [
+                'id' => (string) $counter['id'],
+                'name' => (string) ($counter['name'] ?? ''),
+                'site' => $sites[0] ?? '',
+                'sites' => $sites,
+            ];
+        }
+
+        return $counters;
+    }
+
+    /**
+     * Счётчик, у которого site/site2 совпадает с хостом APP_URL; www не учитывается.
+     *
+     * @param  list<array{id: string, sites: list<string>}>  $counters
+     */
+    public static function matchCounterByUrl(array $counters, string $url): ?string
+    {
+        $target = self::siteKey($url);
+
+        if ($target === null) {
+            return null;
+        }
+
+        foreach ($counters as $counter) {
+            foreach ($counter['sites'] as $site) {
+                $key = self::siteKey($site);
+
+                if ($key !== null && ($key === $target || $key === strtok($target, ':'))) {
+                    return $counter['id'];
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Хост без www (и порт, если он не стандартный), без схемы и пути.
+     */
+    private static function siteKey(string $site): ?string
+    {
+        $site = mb_trim($site);
+
+        if ($site === '') {
+            return null;
+        }
+
+        $parts = parse_url(preg_match('#^[a-z][a-z0-9+.-]*://#i', $site) === 1 ? $site : 'http://'.$site);
+
+        if (! is_array($parts) || ! isset($parts['host']) || $parts['host'] === '') {
+            return null;
+        }
+
+        $host = mb_strtolower($parts['host']);
+        $host = str_starts_with($host, 'www.') ? mb_substr($host, 4) : $host;
+        $port = $parts['port'] ?? null;
+
+        return $port !== null && ! in_array($port, [80, 443], true) ? $host.':'.$port : $host;
+    }
+
+    /**
+     * @return array{0: string, 1: string|null}
+     */
+    private function resolveCounter(): array
+    {
+        $settings = app(YandexSettings::class);
+        $stored = $settings->storedValue('counter_id');
+
+        if ($stored !== '') {
+            return [$stored, YandexSettings::SOURCE_DB];
+        }
+
+        $counters = $this->counters() ?? [];
+        $match = self::matchCounterByUrl($counters, (string) config('app.url'));
+
+        if ($match !== null) {
+            return [$match, YandexSettings::SOURCE_AUTO];
+        }
+
+        $env = $settings->configValue('counter_id');
+
+        if ($env !== '') {
+            return [$env, YandexSettings::SOURCE_ENV];
+        }
+
+        if (count($counters) === 1) {
+            return [$counters[0]['id'], YandexSettings::SOURCE_AUTO];
+        }
+
+        return ['', null];
     }
 
     /**

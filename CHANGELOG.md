@@ -5,6 +5,37 @@ All notable changes to this package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- The dashboard shows which Yandex OAuth app issued the token: its `client_id` next to the account, linked to the app page on oauth.yandex.ru
+- Missing-scope alerts on the Webmaster tab now offer actions: open the app's edit page to add the scope, and "Reconnect Yandex" to issue a new token
+- Optional `oauth_client_id` config key (`YANDEX_OAUTH_CLIENT_ID`); by default the `client_id` is read from login.yandex.ru/info for the current token
+- Settings in the database (optional migration `yandex_metrika_settings`): ClientID, Client secret and token (encrypted), counter ID, host ID, token scopes and the date it was obtained. Database values take priority over env; all services read them through `Support\YandexSettings`
+- "Yandex connection" MoonShine page (registered automatically, `connection_page` config key): app link, value source (DB or env), masked secrets, granted and missing scopes, settings form, reset to env
+- "Get token" / "Reconnect" buttons: OAuth authorization code flow with `state` and PKCE; the callback route `/{moonshine.prefix}/yandex-analytics/oauth/callback` saves the token
+- Artisan commands `yandex-metrika:connection:set`, `yandex-metrika:connection:status`, `yandex-metrika:connection:clear`
+
+- "Connection settings" button in the dashboard header; the connection page is not a menu item and has a "Back to Yandex Metrika" link
+- All Yandex OAuth links open in a new tab (`target="_blank" rel="noopener noreferrer"`); the header `client_id` is a visible link with an external icon
+- Token date is shown in `app.timezone`
+- Webmaster host is a dropdown of the account's sites on the connection page; without a saved host the site matching `APP_URL` is picked automatically (then env, then the only site). The site list is cached for 5 minutes
+- Dashboard notices are one short line with a link to the connection page
+- Metrika counter is a dropdown of the account's counters (Management API `management/v1/counters`, cached for 5 minutes); without a saved counter the one whose site matches `APP_URL` is picked automatically (then env, then the only counter). New `management_api_url` config key
+- Connection page is split into numbered steps with a status: Yandex app (create link, scopes, Redirect URI with a copy button, ClientID and secret), Token ("Get token via Yandex", manual token collapsed), Counter and site. "Check connection" and "Reset" buttons at the bottom; route `connection/check`
+
+### Changed
+
+- The dashboard header no longer shows the OAuth app line and the data source caption; app details are on the connection page (with the ClientID read from the token when it is not saved)
+- Explanatory captions and hints removed from the dashboard, tabs and connection page
+
+### Compatibility
+
+- `guzzlehttp/guzzle` `^7.0 || ^8.0`; CI also runs Laravel 13 with Guzzle 8
+
+- Without the migration and without saved settings everything works from env as before
+
 ## [1.3.0] - 2026-11-19
 
 ### Added
