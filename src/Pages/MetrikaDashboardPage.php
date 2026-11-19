@@ -369,8 +369,8 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
             $appHtml = $oauthApp->isKnown()
                 ? '<div class="text-xs opacity-70 ym-oauth-app">'
                     .e(__('moonshine-yandex-metrika::metrics.oauth_app')).': '
-                    .'<a href="'.e($oauthApp->appUrl()).'" target="_blank" rel="noopener noreferrer" class="underline">'
-                    .e((string) $oauthApp->clientId).'</a></div>'
+                    .'<a href="'.e($oauthApp->appUrl()).'" target="_blank" rel="noopener noreferrer" class="ym-ext-link">'
+                    .e((string) $oauthApp->clientId).$this->tabIconSvg('arrow-top-right-on-square').'</a></div>'
                 : '';
             $accountHtml = '<div class="flex items-center gap-3">'
                 .$avatar
@@ -394,6 +394,16 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
                 .'</a>';
         }
 
+        // Настройки подключения: страница не в меню, вход только отсюда.
+        if (config('moonshine-yandex-metrika.connection_page', true)) {
+            $settingsLabel = e(__('moonshine-yandex-metrika::metrics.connection_settings_link'));
+            $exportHtml .= '<a href="'.e(app(YandexConnectionPage::class)->getUrl()).'" class="btn btn-secondary btn-sm ym-export ym-settings-link" title="'
+                .$settingsLabel.'">'
+                .$this->tabIconSvg('cog-6-tooth')
+                .'<span>'.$settingsLabel.'</span>'
+                .'</a>';
+        }
+
         $tabsHtml = $this->renderTabsHtml($period, $tab);
         $periodHtml = $attributes->usesPeriod
             ? $this->renderPeriodControlsHtml($period, $tab)
@@ -409,6 +419,17 @@ class MetrikaDashboardPage extends Page implements MetrikaDashboardTabHost
     align-items:center;
     gap:.4rem;
   }
+  .ym-ext-link {
+    display:inline-flex;
+    align-items:center;
+    gap:.2rem;
+    color:var(--ms-cm-primary, #7c3aed);
+    text-decoration:underline;
+    text-underline-offset:2px;
+    opacity:1;
+  }
+  .ym-ext-link svg { width:.8rem; height:.8rem; flex:0 0 auto; }
+  .ym-oauth-app { opacity:1 !important; }
   .ym-export svg {
     width:1rem;
     height:1rem;
@@ -691,6 +712,8 @@ HTML;
             'presentation-chart-line' => '<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5M9 11.25l3 3 3.75-4.5"/>',
             'magnifying-glass' => '<path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/>',
             'arrow-down-tray' => '<path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/>',
+            'cog-6-tooth' => '<path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>',
+            'arrow-top-right-on-square' => '<path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>',
             'square-2-stack' => '<path stroke-linecap="round" stroke-linejoin="round" d="M16.5 8.25V6.75a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 3 6.75v9A2.25 2.25 0 0 0 5.25 18h1.5m1.5-3h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 6 5.25v9A2.25 2.25 0 0 0 8.25 16.5Z"/>',
         ];
 
@@ -992,7 +1015,8 @@ HTML;
         $tokenUrl = $flowReady ? route('moonshine-yandex-metrika.oauth.redirect') : $app->tokenUrl();
 
         if ($tokenUrl !== null) {
-            $links .= '<a href="'.e($tokenUrl).'"'.($flowReady ? '' : ' target="_blank" rel="noopener noreferrer"')
+            // Яндекс открывается в новой вкладке, чтобы не закрыть админку.
+            $links .= '<a href="'.e($tokenUrl).'" target="_blank" rel="noopener noreferrer"'
                 .' class="btn btn-primary btn-sm">'
                 .e(__('moonshine-yandex-metrika::metrics.oauth_reconnect')).'</a>';
         }

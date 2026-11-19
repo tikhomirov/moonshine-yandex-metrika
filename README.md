@@ -94,13 +94,9 @@ php artisan migrate
 
 The migration creates `yandex_metrika_settings`. It stores ClientID, Client secret and the token (encrypted with `APP_KEY`), the counter ID, the Webmaster host, the token scopes and the date it was obtained. A value saved in the database takes priority over env; an empty value falls back to env.
 
-The **Yandex connection** page is registered in MoonShine automatically (disable with `'connection_page' => false`). Add it to the menu if you want:
+The **Yandex connection** page is registered in MoonShine automatically (disable with `'connection_page' => false`). It is not a menu item: open it with the **Connection settings** button in the dashboard header (next to CSV) or from the missing-scope alerts. The page has a **← Back to Yandex Metrika** link.
 
-```php
-use Tikhomirov\MoonshineYandexMetrika\Pages\YandexConnectionPage;
-
-MenuItem::make(YandexConnectionPage::class, 'Yandex connection');
-```
+All links to Yandex (the app page, its edit page, token issuing, **Get token** / **Reconnect**) open in a new tab, so the admin stays open. After OAuth the new tab returns to the connection page and can be closed. The token date is shown in `app.timezone`.
 
 The page shows the OAuth app (ClientID with a link to oauth.yandex.ru), where each value comes from (DB or env), masked secrets, granted and missing scopes, and has the settings form, a **Get token** / **Reconnect** button and **Clear and fall back to env**.
 

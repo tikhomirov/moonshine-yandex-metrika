@@ -17,7 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - "Get token" / "Reconnect" buttons: OAuth authorization code flow with `state` and PKCE; the callback route `/{moonshine.prefix}/yandex-analytics/oauth/callback` saves the token
 - Artisan commands `yandex-metrika:connection:set`, `yandex-metrika:connection:status`, `yandex-metrika:connection:clear`
 
+- "Connection settings" button in the dashboard header; the connection page is not a menu item and has a "Back to Yandex Metrika" link
+- All Yandex OAuth links open in a new tab (`target="_blank" rel="noopener noreferrer"`); the header `client_id` is a visible link with an external icon
+- Token date is shown in `app.timezone`
+
 ### Compatibility
+
+- `guzzlehttp/guzzle` `^7.0 || ^8.0`; CI also runs Laravel 13 with Guzzle 8
 
 - Without the migration and without saved settings everything works from env as before
 

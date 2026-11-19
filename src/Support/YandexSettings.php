@@ -226,6 +226,16 @@ class YandexSettings
     }
 
     /**
+     * Дата и время в часовом поясе приложения (config app.timezone), с подписью пояса.
+     */
+    public static function formatDate(CarbonInterface $date): string
+    {
+        $timezone = (string) config('app.timezone', 'UTC');
+
+        return $date->copy()->setTimezone($timezone)->format('d.m.Y H:i').' ('.$timezone.')';
+    }
+
+    /**
      * Маска для секретов: видно только последние 4 символа.
      */
     public static function mask(string $value): string

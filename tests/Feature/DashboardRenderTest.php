@@ -321,7 +321,19 @@ test('toolbar shows the oauth app client_id with a link to its page', function (
     expect($html)->toContain('owner@example.com')
         ->and($html)->toContain('OAuth app')
         ->and($html)->toContain('href="https://oauth.yandex.ru/client/4760187d81bc4b7799476b42b5103713"')
-        ->and($html)->not->toContain('test-token');
+        ->and($html)->toContain('class="ym-ext-link"')
+        ->and($html)->not->toContain('test-token')
+        ->and(yandexLinksWithoutBlankTarget($html))->toBe([]);
+});
+
+test('toolbar has a connection settings button leading to the connection page', function () {
+    $html = collect(app(MetrikaDashboardPage::class)->getComponents())
+        ->map(fn ($component) => (string) $component->render())
+        ->implode('');
+
+    expect($html)->toContain('ym-settings-link')
+        ->and($html)->toContain('Connection settings')
+        ->and($html)->toMatch('#<a href="[^"]*/admin/page/yandex-connection-page"[^>]*ym-settings-link#');
 });
 
 test('missing links scope alert offers app edit link and reconnect', function () {
@@ -336,7 +348,8 @@ test('missing links scope alert offers app edit link and reconnect', function ()
         ->and($html)->toContain('response_type=token&amp;client_id=4760187d81bc4b7799476b42b5103713&amp;force_confirm=yes')
         ->and($html)->toContain('Reconnect Yandex')
         ->and($html)->toContain('YANDEX_METRIKA_TOKEN')
-        ->and($html)->not->toContain('test-token');
+        ->and($html)->not->toContain('test-token')
+        ->and(yandexLinksWithoutBlankTarget($html))->toBe([]);
 });
 
 test('webmaster fetch failure alert also offers the oauth actions', function () {
@@ -376,5 +389,6 @@ test('reconnect uses the package oauth flow when the client secret is stored', f
     expect($html)->toContain('/admin/yandex-analytics/oauth/redirect')
         ->and($html)->not->toContain('response_type=token')
         ->and($html)->toContain('Yandex connection')
-        ->and($html)->not->toContain('super-secret-value');
+        ->and($html)->not->toContain('super-secret-value')
+        ->and(yandexLinksWithoutBlankTarget($html))->toBe([]);
 });

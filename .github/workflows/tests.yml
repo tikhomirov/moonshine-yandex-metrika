@@ -16,8 +16,14 @@ jobs:
         php: ['8.4']
         laravel: ['12.*', '13.*']
         moonshine: ['^5.0']
+        guzzle: ['^7.0']
+        include:
+          - php: '8.4'
+            laravel: '13.*'
+            moonshine: '^5.0'
+            guzzle: '^8.0'
 
-    name: PHP ${{ matrix.php }} - Laravel ${{ matrix.laravel }} - MoonShine ${{ matrix.moonshine }}
+    name: PHP ${{ matrix.php }} - Laravel ${{ matrix.laravel }} - MoonShine ${{ matrix.moonshine }} - Guzzle ${{ matrix.guzzle }}
 
     steps:
       - uses: actions/checkout@v4
@@ -30,7 +36,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          composer require "laravel/framework:${{ matrix.laravel }}" "moonshine/moonshine:${{ matrix.moonshine }}" --no-update
+          composer require "laravel/framework:${{ matrix.laravel }}" "moonshine/moonshine:${{ matrix.moonshine }}" "guzzlehttp/guzzle:${{ matrix.guzzle }}" --no-update
           composer update --prefer-dist --no-interaction --no-progress
 
       - name: Run tests

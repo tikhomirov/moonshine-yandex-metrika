@@ -29,7 +29,29 @@ class YandexConnectionPage extends Page
 
     public function getBreadcrumbs(): array
     {
-        return ['#' => $this->getTitle()];
+        return [
+            $this->dashboardUrl() => (string) config('moonshine-yandex-metrika.page_title', 'Яндекс.Метрика'),
+            '#' => $this->getTitle(),
+        ];
+    }
+
+    protected function dashboardUrl(): string
+    {
+        return app(MetrikaDashboardPage::class)->getUrl();
+    }
+
+    /**
+     * Ссылка «← Назад к Яндекс.Метрике»: страница не в меню, вход с дашборда.
+     */
+    protected function backLink(): FlexibleRender
+    {
+        return FlexibleRender::make(
+            '<a href="'.e($this->dashboardUrl()).'" class="btn btn-secondary btn-sm ym-back-link">← '
+            .e(__('moonshine-yandex-metrika::metrics.connection_back', [
+                'title' => (string) config('moonshine-yandex-metrika.page_title', 'Яндекс.Метрика'),
+            ]))
+            .'</a>',
+        );
     }
 
     public function getTitle(): string
@@ -47,6 +69,7 @@ class YandexConnectionPage extends Page
 
         if (! $settings->tableExists()) {
             return $this->wrapInSpaceElements([
+                $this->backLink(),
                 Alert::make('exclamation-triangle', 'warning')
                     ->content(__('moonshine-yandex-metrika::metrics.connection_no_table')),
                 Box::make(__('moonshine-yandex-metrika::metrics.connection_status'), [
@@ -56,6 +79,7 @@ class YandexConnectionPage extends Page
         }
 
         return $this->wrapInSpaceElements([
+            $this->backLink(),
             ...$this->scopeAlerts($settings),
             Box::make(__('moonshine-yandex-metrika::metrics.connection_status'), [
                 $this->statusTable($settings),
@@ -151,7 +175,7 @@ class YandexConnectionPage extends Page
         $obtainedAt = $settings->tokenObtainedAt();
         $rows .= $this->row(
             (string) __('moonshine-yandex-metrika::metrics.connection_token_obtained_at'),
-            $obtainedAt === null ? '<span class="opacity-60">—</span>' : e($obtainedAt->toDateTimeString()),
+            $obtainedAt === null ? '<span class="opacity-60">—</span>' : e(YandexSettings::formatDate($obtainedAt)),
             '',
         );
 
@@ -174,7 +198,7 @@ class YandexConnectionPage extends Page
         $label = __('moonshine-yandex-metrika::metrics.'.($hasToken ? 'oauth_reconnect' : 'connection_get_token'));
 
         $buttons = $flow->canStart()
-            ? '<a href="'.e(route('moonshine-yandex-metrika.oauth.redirect')).'" class="btn btn-primary btn-sm">'.e($label).'</a>'
+            ? '<a href="'.e(route('moonshine-yandex-metrika.oauth.redirect')).'" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm">'.e($label).'</a>'
             : '';
 
         $buttons .= '<a href="'.e($app->appUrl()).'" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm">'

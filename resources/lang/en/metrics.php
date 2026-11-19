@@ -74,7 +74,7 @@ return [
     'oauth_no_code' => 'Yandex did not return an authorization code.',
     'oauth_exchange_failed' => 'Could not exchange the code for a token: :error',
     'oauth_denied' => 'Yandex rejected the authorization: :error. Check the app scopes.',
-    'oauth_connected' => 'Yandex is connected, the token is saved. Scopes: :scopes.',
+    'oauth_connected' => 'Yandex is connected, the token is saved. Scopes: :scopes. You can close this tab.',
     'oauth_need_client' => 'Set the app ClientID and Client secret to use the "Get token" button.',
     'connection_title' => 'Yandex connection',
     'connection_status' => 'Status',
@@ -106,4 +106,6 @@ return [
     'connection_db_over_env' => 'Database values take priority over env. Empty field: the env value is used.',
     'connection_token_hint' => 'Usually not needed: the "Get token" button saves the token.',
     'connection_save' => 'Save',
+    'connection_settings_link' => 'Connection settings',
+    'connection_back' => 'Back to :title',
 ];

@@ -38,7 +38,7 @@ final class ConnectionStatusCommand extends Command
         $this->line('OAuth app: '.($app->isKnown() ? $app->appUrl() : '-'));
         $this->line('Scopes: '.($scopes === null ? 'unknown' : implode(' ', $scopes)));
         $this->line('Missing scopes: '.($missing === null ? 'unknown' : ($missing === [] ? 'none' : implode(' ', $missing))));
-        $this->line('Token obtained at: '.($settings->tokenObtainedAt()?->toDateTimeString() ?? '-'));
+        $this->line('Token obtained at: '.(($at = $settings->tokenObtainedAt()) ? YandexSettings::formatDate($at) : '-'));
 
         return self::SUCCESS;
     }

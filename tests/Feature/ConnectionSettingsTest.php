@@ -120,7 +120,17 @@ test('connection page shows app, sources, masked secrets, missing scopes and red
         ->and($html)->toContain('/admin/yandex-analytics/oauth/redirect')
         ->and($html)->toContain('Reconnect Yandex')
         ->and($html)->toContain('name="client_id"')
-        ->and($html)->toContain('/admin/yandex-analytics/connection/clear');
+        ->and($html)->toContain('/admin/yandex-analytics/connection/clear')
+        ->and($html)->toMatch('#<a href="[^"]*/admin/page/metrika-dashboard-page"[^>]*ym-back-link#')
+        ->and($html)->toContain('Back to')
+        ->and(yandexLinksWithoutBlankTarget($html))->toBe([]);
+});
+
+test('token obtained date is shown in the app timezone', function () {
+    config()->set('app.timezone', 'Europe/Moscow');
+
+    expect(YandexSettings::formatDate(\Illuminate\Support\Carbon::parse('2026-11-19 18:59:37', 'UTC')))
+        ->toBe('19.11.2026 21:59 (Europe/Moscow)');
 });
 
 test('save action keeps secrets when the password fields are empty', function () {

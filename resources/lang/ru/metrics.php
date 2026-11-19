@@ -74,7 +74,7 @@ return [
     'oauth_no_code' => 'Яндекс не вернул код авторизации.',
     'oauth_exchange_failed' => 'Не удалось обменять код на токен: :error',
     'oauth_denied' => 'Яндекс отклонил авторизацию: :error. Проверьте права приложения.',
-    'oauth_connected' => 'Яндекс подключён, токен сохранён. Права: :scopes.',
+    'oauth_connected' => 'Яндекс подключён, токен сохранён. Права: :scopes. Эту вкладку можно закрыть.',
     'oauth_need_client' => 'Для кнопки «Получить токен» укажите ClientID и Client secret приложения.',
     'connection_title' => 'Подключение Яндекса',
     'connection_status' => 'Статус',
@@ -106,4 +106,6 @@ return [
     'connection_db_over_env' => 'Значения из базы важнее env. Пустое поле: значение берётся из env.',
     'connection_token_hint' => 'Обычно не нужен: токен сохраняется кнопкой «Получить токен».',
     'connection_save' => 'Сохранить',
+    'connection_settings_link' => 'Настройки подключения',
+    'connection_back' => 'Назад к :title',
 ];
