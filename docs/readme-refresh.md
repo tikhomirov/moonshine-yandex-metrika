@@ -16,3 +16,4 @@
 
 ## Коммиты
 
+- `381e9bc` — docs: refresh README for v1.4.0, unified badges and cover
