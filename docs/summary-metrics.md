@@ -14,4 +14,4 @@
 
 ## Коммиты
 
-- TBD
+- `0a3fb12` — feat: configurable Metrika KPI card order via summary_metrics
