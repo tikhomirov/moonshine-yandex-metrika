@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Token date is shown in `app.timezone`
 - Webmaster host is a dropdown of the account's sites on the connection page; without a saved host the site matching `APP_URL` is picked automatically (then env, then the only site). The site list is cached for 5 minutes
 - Dashboard notices are one short line with a link to the connection page
+- Metrika counter is a dropdown of the account's counters (Management API `management/v1/counters`, cached for 5 minutes); without a saved counter the one whose site matches `APP_URL` is picked automatically (then env, then the only counter). New `management_api_url` config key
+- Connection page is split into numbered steps with a status: Yandex app (create link, scopes, Redirect URI with a copy button, ClientID and secret), Token ("Get token via Yandex", manual token collapsed), Counter and site. "Check connection" and "Reset" buttons at the bottom; route `connection/check`
 
 ### Changed
 

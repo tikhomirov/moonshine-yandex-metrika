@@ -98,11 +98,19 @@ The migration creates `yandex_metrika_settings`. It stores ClientID, Client secr
 
 The **Yandex connection** page is registered in MoonShine automatically (disable with `'connection_page' => false`). It is not a menu item: open it with the **Connection settings** button in the dashboard header (next to CSV) or from the missing-scope alerts. The page has a **← Back to Yandex Metrika** link.
 
-All links to Yandex (the app page, its edit page, token issuing, **Get token** / **Reconnect**) open in a new tab, so the admin stays open. After OAuth the new tab returns to the connection page and can be closed. The token date is shown in `app.timezone`.
+All links to Yandex (the app page, its edit page, token issuing, **Get token via Yandex** / **Reconnect**) open in a new tab, so the admin stays open. After OAuth the new tab returns to the connection page and can be closed. The token date is shown in `app.timezone`.
 
-The page shows the OAuth app (ClientID with a link to oauth.yandex.ru), where each value comes from (DB, env or auto), masked secrets, granted and missing scopes, and has the settings form, a **Get token** / **Reconnect** button and **Clear and fall back to env**.
+The page is split into numbered steps, each with a "done" / "to do" status:
 
-**Webmaster host** in the form is a dropdown with the account's sites from the Webmaster API. **Auto (by APP_URL)** keeps the host unsaved and shows which site was picked. If there is no token or the API fails, the field becomes a text input and the page shows a short notice with a link to Webmaster. `yandex-metrika:connection:set --host-id=...` works as before.
+1. **Yandex app**: **Create app** link (oauth.yandex.ru), required scopes, Redirect URI with a **Copy** button, ClientID and Client secret fields with **Save**.
+2. **Token**: **Get token via Yandex** button (OAuth), active after step 1. With a token the step shows the account, the masked token and its scopes. **Enter token manually** is a collapsed form.
+3. **Counter and site**: Metrika counter and Webmaster host dropdowns, active once there is a token.
+
+At the bottom: **Check connection** (a fresh request to Metrika) and **Reset** (delete the settings from the database and fall back to env). A step is not locked when its values come from env. Values from env are shown as field placeholders; secrets only masked.
+
+**Metrika counter** is a dropdown with the account's counters from the Management API (`management/v1/counters`): name, site and ID. **Webmaster host** is a dropdown with the account's sites from the Webmaster API. Both lists are cached for 5 minutes. The first item **Auto (by APP_URL): …** keeps the value unsaved and shows what was picked; the status marks it with the "auto" badge.
+
+Counter order: saved in the database → the counter whose `site` / `site2` matches the `APP_URL` host (`www` and scheme are ignored) → `YANDEX_METRIKA_COUNTER_ID` → the only counter of the account. Host order is the same (scheme, host and port are compared). Without a token, or when the API fails, the field is a text input and the step shows a short notice with a link to Metrika or Webmaster. `yandex-metrika:connection:set --counter-id=... --host-id=...` works as before. The Management API URL can be changed with the `management_api_url` config key.
 
 **Get token** uses the OAuth authorization code flow with `state` and PKCE. It requests the scopes from `oauth_scopes` and saves the token to the database. For it to work:
 
